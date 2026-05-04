@@ -1,0 +1,237 @@
+### Mahlzeit Workspace API — examples for the VS Code REST Client.
+### Phase 1: sessions + items (freitext only).
+###
+### Setup:
+###   1. Run server/schema.sql against your local MySQL.
+###   2. Run `php server/seed.php --create-test-workspace "Dev"` to create
+###      a workspace and print its token.
+###   3. Replace the @token / @userId values below with real ones.
+
+@host = http://localhost:8000
+@token = REPLACE_WITH_WORKSPACE_TOKEN
+@userId = u1234567890abcde
+@userName = Test User
+@sessionId = REPLACE_AFTER_CREATE
+@itemId = REPLACE_AFTER_ADD
+
+### --- sessions ---------------------------------------------------------
+
+### List sessions
+GET {{host}}/api/sessions
+X-Workspace-Token: {{token}}
+
+### List sessions via query-param token
+GET {{host}}/api/sessions?w={{token}}
+
+### Create a session
+POST {{host}}/api/sessions
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "{{userName}}",
+  "title": "Pizza-Donnerstag",
+  "restaurant_name": "Pizzeria Roma",
+  "deadline": "2026-05-08 11:30",
+  "creator_iban": "AT611904300234573201"
+}
+
+### Get a single session (with items)
+GET {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+
+### Patch a session (creator only). Any subset of fields is allowed.
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "title": "Pizza-Donnerstag (verschoben)",
+  "deadline": "2026-05-08 12:00"
+}
+
+### Close a session (creator only)
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "status": "closed"
+}
+
+### Reopen a session (creator only)
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "status": "open"
+}
+
+### Delete a session (creator only)
+DELETE {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}"
+}
+
+### --- items (freitext) -------------------------------------------------
+
+### Add a freitext item with price (in cents — 11.50 EUR = 1150)
+POST {{host}}/api/sessions/{{sessionId}}/items
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "{{userName}}",
+  "dish": "Margherita Mittel",
+  "note": "ohne Knoblauch",
+  "price_cents": 1150
+}
+
+### Add a freitext item without price
+POST {{host}}/api/sessions/{{sessionId}}/items
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "{{userName}}",
+  "dish": "Cola 0,5l"
+}
+
+### Update own item
+PATCH {{host}}/api/sessions/{{sessionId}}/items/{{itemId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "dish": "Margherita Groß",
+  "price_cents": 1350
+}
+
+### Delete own item
+DELETE {{host}}/api/sessions/{{sessionId}}/items/{{itemId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}"
+}
+
+### --- error cases (for sanity-checking) -------------------------------
+
+### Missing token → 401
+GET {{host}}/api/sessions
+
+### Wrong token → 401
+GET {{host}}/api/sessions
+X-Workspace-Token: not-a-real-token
+
+### Unknown field → 400
+POST {{host}}/api/sessions
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "{{userName}}",
+  "title": "Test",
+  "evil_field": "should be rejected"
+}
+
+### Invalid IBAN → 400
+POST {{host}}/api/sessions
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "{{userName}}",
+  "title": "Test",
+  "creator_iban": "AT00WRONG"
+}
+
+### --- admin api -------------------------------------------------------
+### Cookie-based session auth + double-submit CSRF.
+### After running `php server/seed.php <admin-user> <password>` once, log in.
+### The REST Client follows Set-Cookie automatically across requests in the
+### same file, so subsequent calls carry the admin session cookie.
+
+@adminUser = admin
+@adminPass = REPLACE_WITH_ADMIN_PASSWORD
+@csrf = REPLACE_AFTER_LOGIN
+@workspaceId = 1
+
+### Login → returns {admin, csrf_token}. Copy csrf_token into @csrf above.
+POST {{host}}/admin/api/login
+Content-Type: application/json
+
+{
+  "username": "{{adminUser}}",
+  "password": "{{adminPass}}"
+}
+
+### Who am I (also refreshes the CSRF token if one exists).
+GET {{host}}/admin/api/me
+
+### List workspaces with stats
+GET {{host}}/admin/api/workspaces
+
+### Create a workspace (returns full detail incl. token + share URL)
+POST {{host}}/admin/api/workspaces
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "name": "Acme GmbH"
+}
+
+### Workspace detail (stats + active_users)
+GET {{host}}/admin/api/workspaces/{{workspaceId}}
+
+### Rename a workspace
+PATCH {{host}}/admin/api/workspaces/{{workspaceId}}
+Content-Type: application/json
+X-CSRF-Token: {{csrf}}
+
+{
+  "name": "Acme (renamed)"
+}
+
+### Rotate the workspace token (old token stops working immediately)
+POST {{host}}/admin/api/workspaces/{{workspaceId}}/rotate
+X-CSRF-Token: {{csrf}}
+
+### Delete a workspace (cascades through sessions/items/restaurants)
+DELETE {{host}}/admin/api/workspaces/{{workspaceId}}
+X-CSRF-Token: {{csrf}}
+
+### Logout
+POST {{host}}/admin/api/logout
+X-CSRF-Token: {{csrf}}
+
+### Missing CSRF on a write → 403
+POST {{host}}/admin/api/workspaces
+Content-Type: application/json
+
+{
+  "name": "Should fail"
+}
+
+### Wrong password → 401 (and contributes to rate-limit bucket)
+POST {{host}}/admin/api/login
+Content-Type: application/json
+
+{
+  "username": "{{adminUser}}",
+  "password": "definitely-wrong"
+}

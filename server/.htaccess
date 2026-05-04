@@ -1,0 +1,14 @@
+# Local dev .htaccess for the server/ directory.
+# In production a combined .htaccess sits at the public_html root (see PLAN.md
+# section 11). For local Apache pointing at server/, this routes /api/* to
+# server/api/index.php.
+
+RewriteEngine On
+
+RewriteRule ^admin/api/(.*)$ admin/index.php [QSA,L]
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# Existing files / directories pass through.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]

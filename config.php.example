@@ -1,0 +1,16 @@
+<?php
+// Copy this file to config.php (one level above the repo root in production,
+// or at the repo root for local dev) and fill in real values. NEVER commit
+// the real config.php — it lives outside the repo and is .gitignored.
+
+return [
+    'db' => [
+        'host' => '127.0.0.1',
+        'port' => 3306,
+        'name' => 'mahlzeit',
+        'user' => 'mahlzeit_user',
+        'pass' => 'CHANGE_ME',
+    ],
+    // Custom session cookie name for the admin area. Used in Phase 1.5.
+    'admin_session_name' => 'mahlzeit_admin',
+];

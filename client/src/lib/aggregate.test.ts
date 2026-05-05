@@ -1,41 +1,191 @@
 import { describe, it, expect } from 'vitest';
-import { aggregateByDish } from './aggregate';
+import { aggregateItems, renderSummaryText } from './aggregate';
+import type { Item } from '../types/api';
 
-describe('aggregateByDish', () => {
-  it('groups identical names', () => {
-    const rows = aggregateByDish([
-      { dish: 'Pizza', price_cents: 950 },
-      { dish: 'Pizza', price_cents: 950 },
-      { dish: 'Salat', price_cents: 700 },
-    ]);
-    expect(rows).toHaveLength(2);
-    const pizza = rows.find((r) => r.key === 'pizza')!;
-    expect(pizza.count).toBe(2);
-    expect(pizza.totalCents).toBe(1900);
+function makeItem(partial: Partial<Item> & Pick<Item, 'id' | 'user_name' | 'dish'>): Item {
+  return {
+    id: partial.id,
+    session_id: partial.session_id ?? 'sess000000000000',
+    user_id: partial.user_id ?? 'user000000000000',
+    user_name: partial.user_name,
+    dish_id: partial.dish_id ?? null,
+    dish: partial.dish,
+    note: partial.note ?? '',
+    price_cents: partial.price_cents ?? null,
+    options: partial.options ?? null,
+    added_at: partial.added_at ?? '2026-05-05 10:00:00',
+  };
+}
+
+describe('aggregateItems', () => {
+  it('returns empty aggregate for no items', () => {
+    const agg = aggregateItems([]);
+    expect(agg.lines).toEqual([]);
+    expect(agg.per_person).toEqual([]);
+    expect(agg.grand_total_cents).toBe(0);
+    expect(agg.has_any_price).toBe(false);
   });
 
-  it('groups case-insensitively and trims whitespace', () => {
-    const rows = aggregateByDish([
-      { dish: 'Pizza', price_cents: 1000 },
-      { dish: 'pizza', price_cents: 1000 },
-      { dish: '  PIZZA  ', price_cents: 1000 },
-    ]);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.count).toBe(3);
-    expect(rows[0]!.totalCents).toBe(3000);
-    expect(rows[0]!.dish).toBe('Pizza');
+  it('does NOT merge same dish with different options', () => {
+    const items: Item[] = [
+      makeItem({
+        id: 'i1aaaaaaaaaaaaaa',
+        user_name: 'Anna',
+        dish: 'Pizza',
+        price_cents: 950,
+        options: [{ group: 'Größe', name: 'Klein', delta_cents: 0 }],
+      }),
+      makeItem({
+        id: 'i2aaaaaaaaaaaaaa',
+        user_name: 'Ben',
+        dish: 'Pizza',
+        price_cents: 1250,
+        options: [{ group: 'Größe', name: 'Groß', delta_cents: 300 }],
+      }),
+    ];
+    const agg = aggregateItems(items);
+    expect(agg.lines).toHaveLength(2);
   });
 
-  it('treats null prices as zero', () => {
-    const rows = aggregateByDish([
-      { dish: 'Suppe', price_cents: null },
-      { dish: 'Suppe', price_cents: 500 },
-    ]);
-    expect(rows[0]!.totalCents).toBe(500);
-    expect(rows[0]!.count).toBe(2);
+  it('merges identical dish + options regardless of option array order', () => {
+    const items: Item[] = [
+      makeItem({
+        id: 'i1aaaaaaaaaaaaaa',
+        user_name: 'Anna',
+        dish: 'Pizza',
+        price_cents: 1100,
+        options: [
+          { group: 'Größe', name: 'Mittel', delta_cents: 150 },
+          { group: 'Toppings', name: 'extra Käse', delta_cents: 100 },
+        ],
+      }),
+      makeItem({
+        id: 'i2aaaaaaaaaaaaaa',
+        user_name: 'Ben',
+        dish: 'Pizza',
+        price_cents: 1100,
+        options: [
+          { group: 'Toppings', name: 'extra Käse', delta_cents: 100 },
+          { group: 'Größe', name: 'Mittel', delta_cents: 150 },
+        ],
+      }),
+    ];
+    const agg = aggregateItems(items);
+    expect(agg.lines).toHaveLength(1);
+    expect(agg.lines[0]!.count).toBe(2);
+    expect(agg.lines[0]!.total_cents).toBe(2200);
+    expect(agg.lines[0]!.unit_price_cents).toBe(1100);
+    expect(agg.lines[0]!.users).toEqual(['Anna', 'Ben']);
   });
 
-  it('returns empty array on empty input', () => {
-    expect(aggregateByDish([])).toEqual([]);
+  it('handles freetext items with null price', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'Suppe', price_cents: null }),
+      makeItem({ id: 'i2aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'Suppe', price_cents: null }),
+    ];
+    const agg = aggregateItems(items);
+    expect(agg.lines).toHaveLength(1);
+    expect(agg.lines[0]!.count).toBe(2);
+    expect(agg.lines[0]!.total_cents).toBeNull();
+    expect(agg.lines[0]!.unit_price_cents).toBeNull();
+    expect(agg.has_any_price).toBe(false);
+  });
+
+  it('drops unit price when same bucket has different prices', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'Salat', price_cents: 700 }),
+      makeItem({ id: 'i2aaaaaaaaaaaaaa', user_name: 'Ben', dish: 'Salat', price_cents: 800 }),
+    ];
+    const agg = aggregateItems(items);
+    expect(agg.lines).toHaveLength(1);
+    expect(agg.lines[0]!.unit_price_cents).toBeNull();
+    expect(agg.lines[0]!.total_cents).toBe(1500);
+  });
+
+  it('computes per-person totals sorted with de locale', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Örni', dish: 'A', price_cents: 100 }),
+      makeItem({ id: 'i2aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'A', price_cents: 200 }),
+      makeItem({ id: 'i3aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'B', price_cents: 50 }),
+    ];
+    const agg = aggregateItems(items);
+    expect(agg.per_person.map((p) => p.user_name)).toEqual(['Anna', 'Örni']);
+    expect(agg.per_person[0]!.total_cents).toBe(250);
+    expect(agg.per_person[1]!.total_cents).toBe(100);
+    expect(agg.grand_total_cents).toBe(350);
+  });
+
+  it('flags persons with unpriced items', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'A', price_cents: 200 }),
+      makeItem({ id: 'i2aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'B', price_cents: null }),
+    ];
+    const agg = aggregateItems(items);
+    expect(agg.per_person[0]!.has_unpriced_items).toBe(true);
+    expect(agg.per_person[0]!.total_cents).toBe(200);
+  });
+});
+
+describe('renderSummaryText', () => {
+  it('produces a plain-text summary with IBAN block when applicable', () => {
+    const items: Item[] = [
+      makeItem({
+        id: 'i1aaaaaaaaaaaaaa',
+        user_name: 'Anna',
+        dish: 'Pizza',
+        price_cents: 1100,
+        options: [{ group: 'Größe', name: 'Mittel', delta_cents: 150 }],
+      }),
+      makeItem({
+        id: 'i2aaaaaaaaaaaaaa',
+        user_name: 'Ben',
+        dish: 'Pizza',
+        price_cents: 1100,
+        options: [{ group: 'Größe', name: 'Mittel', delta_cents: 150 }],
+      }),
+    ];
+    const text = renderSummaryText({
+      session_title: 'Mittag Mittwoch',
+      restaurant_name: 'Pizzeria Roma',
+      creator_name: 'Clara',
+      creator_iban: 'AT611904300234573201',
+      aggregate: aggregateItems(items),
+    });
+    expect(text).toContain('Sammelbestellung: Mittag Mittwoch');
+    expect(text).toContain('Pizzeria Roma');
+    expect(text).toContain('2× Pizza (Größe: Mittel)');
+    expect(text).toContain('Anna, Ben');
+    expect(text).toContain('Bitte überweisen an:');
+    expect(text).toContain('Clara');
+    expect(text).toContain('AT61 1904 3002 3457 3201');
+  });
+
+  it('omits IBAN block when no item is priced', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'Suppe', price_cents: null }),
+    ];
+    const text = renderSummaryText({
+      session_title: 'X',
+      restaurant_name: '',
+      creator_name: 'Clara',
+      creator_iban: 'AT611904300234573201',
+      aggregate: aggregateItems(items),
+    });
+    expect(text).not.toContain('IBAN');
+    expect(text).not.toContain('überweisen');
+  });
+
+  it('omits IBAN block when creator has no IBAN', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'Pizza', price_cents: 950 }),
+    ];
+    const text = renderSummaryText({
+      session_title: 'X',
+      restaurant_name: '',
+      creator_name: 'Clara',
+      creator_iban: '',
+      aggregate: aggregateItems(items),
+    });
+    expect(text).not.toContain('IBAN');
   });
 });

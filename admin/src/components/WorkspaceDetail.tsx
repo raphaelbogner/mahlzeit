@@ -11,6 +11,7 @@ import { navigate } from '../hooks/useRoute'
 import { formatDateTime, formatRelativeTime } from '../lib/format'
 import { CopyButton } from './CopyButton'
 import { ConfirmDialog } from './ConfirmDialog'
+import { useToast } from './Toast'
 
 export interface WorkspaceDetailProps {
   id: number
@@ -22,26 +23,28 @@ type DialogKind = 'rotate' | 'delete' | null
 
 export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps) {
   const [workspace, setWorkspace] = useState<WorkspaceDetailData | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [editingName, setEditingName] = useState('')
   const [dialog, setDialog] = useState<DialogKind>(null)
   const [busy, setBusy] = useState(false)
+  const { showError, showSuccess } = useToast()
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
-      setError(null)
+      setLoadError(null)
       try {
         const ws = await getWorkspace(id, signal)
         setWorkspace(ws)
         setEditingName(ws.name)
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return
-        setError(err instanceof ApiError ? err.message : 'Konnte Workspace nicht laden.')
+        const msg = err instanceof ApiError ? err.message : 'Konnte Workspace nicht laden.'
+        setLoadError(msg)
+        showError(msg)
       }
     },
-    [id]
+    [id, showError]
   )
 
   useEffect(() => {
@@ -58,14 +61,13 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
       return
     }
     setBusy(true)
-    setError(null)
     try {
       const ws = await renameWorkspace(id, trimmed)
       setWorkspace(ws)
       setRenaming(false)
-      setNotice('Name aktualisiert.')
+      showSuccess('Name aktualisiert.')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Umbenennen fehlgeschlagen.')
+      showError(err instanceof ApiError ? err.message : 'Umbenennen fehlgeschlagen.')
     } finally {
       setBusy(false)
     }
@@ -73,14 +75,13 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
 
   async function confirmRotate() {
     setBusy(true)
-    setError(null)
     try {
       const ws = await rotateWorkspaceToken(id)
       setWorkspace(ws)
       setDialog(null)
-      setNotice('Token rotiert. Der alte Link funktioniert nicht mehr.')
+      showSuccess('Token rotiert. Der alte Link funktioniert nicht mehr.')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Token-Rotation fehlgeschlagen.')
+      showError(err instanceof ApiError ? err.message : 'Token-Rotation fehlgeschlagen.')
     } finally {
       setBusy(false)
     }
@@ -88,21 +89,55 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
 
   async function confirmDelete() {
     setBusy(true)
-    setError(null)
     try {
       await deleteWorkspace(id)
       setDialog(null)
       navigate('/')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Löschen fehlgeschlagen.')
+      showError(err instanceof ApiError ? err.message : 'Löschen fehlgeschlagen.')
       setBusy(false)
     }
   }
 
-  if (workspace === null && error === null) {
+  if (workspace === null) {
     return (
-      <div className="min-h-screen bg-neutral-50 p-6 text-sm text-neutral-500 dark:bg-neutral-950">
-        Lade Workspace…
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+        <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="text-sm text-violet-700 hover:underline dark:text-violet-300"
+            >
+              ← Zurück
+            </button>
+            <button
+              type="button"
+              onClick={() => void onLogout()}
+              className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+            >
+              Logout
+            </button>
+          </div>
+        </header>
+        <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6" aria-busy="true">
+          {loadError ? (
+            <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+              {loadError}
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => void reload()}
+                  className="rounded border border-red-400 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-neutral-900 dark:text-red-200"
+                >
+                  Erneut versuchen
+                </button>
+              </div>
+            </div>
+          ) : (
+            <WorkspaceDetailSkeleton />
+          )}
+        </main>
       </div>
     )
   }
@@ -110,8 +145,8 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() => navigate('/')}
@@ -120,42 +155,44 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
             >
               ← Zurück
             </button>
-            {workspace ? (
-              renaming ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    maxLength={120}
-                    className="rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void saveName()}
-                    disabled={busy}
-                    className="rounded bg-violet-600 px-2 py-1 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-                  >
-                    Speichern
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRenaming(false)
-                      setEditingName(workspace.name)
-                    }}
-                    disabled={busy}
-                    className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
-                  >
-                    Abbrechen
-                  </button>
-                </div>
-              ) : (
-                <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                  {workspace.name}
-                </h1>
-              )
-            ) : null}
+            {renaming ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="rename-input" className="sr-only">
+                  Neuer Workspace-Name
+                </label>
+                <input
+                  id="rename-input"
+                  type="text"
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  maxLength={120}
+                  className="rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => void saveName()}
+                  disabled={busy}
+                  className="rounded bg-violet-600 px-2 py-1 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  Speichern
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenaming(false)
+                    setEditingName(workspace.name)
+                  }}
+                  disabled={busy}
+                  className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            ) : (
+              <h1 className="truncate text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                {workspace.name}
+              </h1>
+            )}
           </div>
           <button
             type="button"
@@ -168,23 +205,8 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-6">
-        {notice ? (
-          <div className="mb-4 rounded border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
-            {notice}
-          </div>
-        ) : null}
-        {error ? (
-          <div
-            className="mb-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
-            role="alert"
-          >
-            {error}
-          </div>
-        ) : null}
-
-        {workspace ? (
-          <>
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+        <>
             <section className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
               <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
                 Share-Link
@@ -313,8 +335,7 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
               onConfirm={() => void confirmDelete()}
               onCancel={() => setDialog(null)}
             />
-          </>
-        ) : null}
+        </>
       </main>
     </div>
   )
@@ -325,6 +346,39 @@ function Stat({ label, value }: { label: string; value: number | string }) {
     <div className="flex flex-col">
       <dt className="text-xs uppercase tracking-wide text-neutral-500">{label}</dt>
       <dd className="text-base font-medium text-neutral-900 dark:text-neutral-100">{value}</dd>
+    </div>
+  )
+}
+
+function WorkspaceDetailSkeleton() {
+  return (
+    <div className="space-y-6" aria-label="Workspace wird geladen">
+      <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="h-3 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+        <div className="mt-3 h-9 w-full animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+      </div>
+      <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="h-3 w-20 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="space-y-2">
+              <div className="h-3 w-20 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+              <div className="h-5 w-16 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="h-3 w-32 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+        <ul className="mt-4 space-y-3">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="flex items-center justify-between">
+              <div className="h-4 w-1/3 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+              <div className="h-3 w-1/4 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }

@@ -16,13 +16,12 @@ export interface Item {
   dish: string;
   note: string;
   price_cents: number | null;
-  options: ItemOptionSnapshot[];
+  options: ItemOptionSnapshot[] | null;
   added_at: string;
 }
 
-export interface Session {
+export interface SessionSummary {
   id: string;
-  workspace_id: number;
   title: string;
   restaurant_id: string | null;
   restaurant_name: string;
@@ -33,20 +32,16 @@ export interface Session {
   status: SessionStatus;
   created_at: string;
   closed_at: string | null;
+  items_count: number | null;
+  total_cents: number | null;
+}
+
+export interface Session extends SessionSummary {
   items: Item[];
 }
 
-export interface SessionSummary {
-  id: string;
-  title: string;
-  restaurant_name: string;
-  deadline: string;
-  creator_id: string;
-  creator_name: string;
-  status: SessionStatus;
-  created_at: string;
-  closed_at: string | null;
-  item_count: number;
+export interface SessionsListResponse {
+  sessions: SessionSummary[];
 }
 
 export interface DishOption {
@@ -91,21 +86,27 @@ export interface Restaurant {
 }
 
 export interface CreateSessionInput {
+  user_id: string;
+  user_name: string;
   title: string;
   restaurant_id?: string | null;
   restaurant_name?: string;
   deadline?: string;
-  creator_id: string;
-  creator_name: string;
   creator_iban?: string;
 }
 
 export interface UpdateSessionInput {
+  user_id: string;
   title?: string;
   restaurant_id?: string | null;
   restaurant_name?: string;
   deadline?: string;
+  creator_iban?: string;
   status?: SessionStatus;
+}
+
+export interface DeleteSessionInput {
+  user_id: string;
 }
 
 export interface AddFreeTextItemInput {
@@ -127,9 +128,14 @@ export interface AddStructuredItemInput {
 export type AddItemInput = AddFreeTextItemInput | AddStructuredItemInput;
 
 export interface UpdateItemInput {
+  user_id: string;
   dish?: string;
   note?: string;
   price_cents?: number | null;
+}
+
+export interface DeleteItemInput {
+  user_id: string;
 }
 
 export interface MenuOptionInput {

@@ -58,21 +58,39 @@ export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Pr
     return undefined as T;
   }
 
+  const contentType = response.headers.get('Content-Type') ?? '';
+  const isJson = contentType.toLowerCase().includes('application/json');
   const text = await response.text();
   let parsed: unknown = null;
-  if (text) {
+  if (text && isJson) {
     try {
       parsed = JSON.parse(text);
     } catch {
-      throw new ApiError(response.status, 'INVALID_JSON', 'Invalid JSON response');
+      throw new ApiError(
+        response.status,
+        'INVALID_JSON',
+        `Backend lieferte ungültiges JSON (HTTP ${response.status}).`,
+      );
     }
   }
 
   if (!response.ok) {
     const err = parsed as ApiErrorBody | null;
     const code = err?.error?.code ?? 'HTTP_ERROR';
-    const message = err?.error?.message ?? `Request failed (${response.status})`;
+    const message =
+      err?.error?.message ??
+      (isJson
+        ? `Anfrage fehlgeschlagen (HTTP ${response.status}).`
+        : `Backend nicht erreichbar (HTTP ${response.status}).`);
     throw new ApiError(response.status, code, message);
+  }
+
+  if (!isJson) {
+    throw new ApiError(
+      response.status,
+      'INVALID_JSON',
+      `Backend lieferte kein JSON (Content-Type: ${contentType || 'leer'}).`,
+    );
   }
 
   return parsed as T;

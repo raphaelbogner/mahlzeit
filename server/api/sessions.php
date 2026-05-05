@@ -63,7 +63,9 @@ function sessions_create(array $workspace): void
 {
     $body = read_json_body();
     reject_unknown_fields($body, [
-        'user_id', 'user_name', 'title', 'restaurant_name', 'deadline', 'creator_iban',
+        'user_id', 'user_name', 'title',
+        'restaurant_id', 'restaurant_name',
+        'deadline', 'creator_iban',
     ]);
 
     $userId = require_string($body, 'user_id', 16, 16);
@@ -75,6 +77,18 @@ function sessions_create(array $workspace): void
     $restaurantName = optional_string($body, 'restaurant_name', 200);
     $deadline = optional_string($body, 'deadline', 50);
     $ibanRaw = optional_string($body, 'creator_iban', 34);
+
+    $restaurantId = null;
+    if (array_key_exists('restaurant_id', $body) && $body['restaurant_id'] !== null && $body['restaurant_id'] !== '') {
+        $restaurantId = resolve_restaurant_id_or_400($workspace, $body['restaurant_id']);
+        if ($restaurantName === '') {
+            // Linked sessions must keep a snapshot of the name in case the
+            // restaurant is later renamed or deleted.
+            $rstmt = db()->prepare('SELECT name FROM restaurants WHERE id = :id LIMIT 1');
+            $rstmt->execute([':id' => $restaurantId]);
+            $restaurantName = (string)($rstmt->fetchColumn() ?: '');
+        }
+    }
 
     $iban = '';
     if ($ibanRaw !== '') {
@@ -90,13 +104,14 @@ function sessions_create(array $workspace): void
             (id, workspace_id, title, restaurant_id, restaurant_name, deadline,
              creator_id, creator_name, creator_iban, status)
          VALUES
-            (:id, :wid, :title, NULL, :rname, :deadline,
+            (:id, :wid, :title, :rid, :rname, :deadline,
              :cid, :cname, :iban, "open")'
     );
     $stmt->execute([
         ':id'       => $id,
         ':wid'      => $workspace['id'],
         ':title'    => $title,
+        ':rid'      => $restaurantId,
         ':rname'    => $restaurantName,
         ':deadline' => $deadline,
         ':cid'      => $userId,
@@ -105,6 +120,22 @@ function sessions_create(array $workspace): void
     ]);
 
     sessions_get($workspace, $id, 201);
+}
+
+// Validates that a restaurant id belongs to the workspace. Returns the id.
+function resolve_restaurant_id_or_400(array $workspace, mixed $value): string
+{
+    if (!is_string($value) || !is_valid_id($value)) {
+        error_response(400, 'INVALID_FIELD', 'Field restaurant_id must be a 16-char id.');
+    }
+    $stmt = db()->prepare(
+        'SELECT id FROM restaurants WHERE id = :id AND workspace_id = :wid LIMIT 1'
+    );
+    $stmt->execute([':id' => $value, ':wid' => $workspace['id']]);
+    if (!$stmt->fetchColumn()) {
+        error_response(404, 'RESTAURANT_NOT_FOUND', 'Restaurant not found in this workspace.');
+    }
+    return $value;
 }
 
 function sessions_get(array $workspace, string $id, int $status = 200): void
@@ -118,7 +149,9 @@ function sessions_patch(array $workspace, string $id): void
 {
     $body = read_json_body();
     reject_unknown_fields($body, [
-        'user_id', 'title', 'restaurant_name', 'deadline', 'creator_iban', 'status',
+        'user_id', 'title',
+        'restaurant_id', 'restaurant_name',
+        'deadline', 'creator_iban', 'status',
     ]);
 
     $session = load_session_or_404($workspace, $id);
@@ -133,6 +166,13 @@ function sessions_patch(array $workspace, string $id): void
 
     if (array_key_exists('title', $body)) {
         $updates['title'] = require_string($body, 'title', 200);
+    }
+    if (array_key_exists('restaurant_id', $body)) {
+        if ($body['restaurant_id'] === null || $body['restaurant_id'] === '') {
+            $updates['restaurant_id'] = null;
+        } else {
+            $updates['restaurant_id'] = resolve_restaurant_id_or_400($workspace, $body['restaurant_id']);
+        }
     }
     if (array_key_exists('restaurant_name', $body)) {
         $updates['restaurant_name'] = optional_string($body, 'restaurant_name', 200);

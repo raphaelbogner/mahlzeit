@@ -127,6 +127,109 @@ Content-Type: application/json
   "user_id": "{{userId}}"
 }
 
+### --- restaurants ----------------------------------------------------
+
+@restaurantId = REPLACE_AFTER_RESTAURANT_CREATE
+
+### List restaurants
+GET {{host}}/api/restaurants
+X-Workspace-Token: {{token}}
+
+### Create a restaurant
+POST {{host}}/api/restaurants
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "name": "Pizzeria Roma"
+}
+
+### Get a restaurant with full menu
+GET {{host}}/api/restaurants/{{restaurantId}}
+X-Workspace-Token: {{token}}
+
+### Rename a restaurant
+PATCH {{host}}/api/restaurants/{{restaurantId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "name": "Pizzeria Roma (neu)"
+}
+
+### Replace the entire menu (transactional bulk PUT)
+PUT {{host}}/api/restaurants/{{restaurantId}}/menu
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "dishes": [
+    {
+      "name": "Margherita",
+      "base_price_cents": 950,
+      "option_groups": [
+        {
+          "name": "Größe",
+          "selection_type": "single",
+          "options": [
+            {"name": "Klein",  "price_delta_cents": 0},
+            {"name": "Mittel", "price_delta_cents": 150},
+            {"name": "Groß",   "price_delta_cents": 300}
+          ]
+        },
+        {
+          "name": "Toppings",
+          "selection_type": "multi",
+          "options": [
+            {"name": "extra Käse", "price_delta_cents": 100},
+            {"name": "Salami",     "price_delta_cents": 150}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cola 0,5l",
+      "base_price_cents": 350,
+      "option_groups": []
+    }
+  ]
+}
+
+### Delete a restaurant (cascade-deletes its menu; items keep snapshot)
+DELETE {{host}}/api/restaurants/{{restaurantId}}
+X-Workspace-Token: {{token}}
+
+### --- structured items -----------------------------------------------
+
+@dishId = REPLACE_FROM_RESTAURANT_DETAIL
+@optionSizeId = REPLACE_FROM_RESTAURANT_DETAIL
+@optionToppingId = REPLACE_FROM_RESTAURANT_DETAIL
+
+### Create a session linked to a restaurant
+POST {{host}}/api/sessions
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "{{userName}}",
+  "title": "Pizza-Donnerstag",
+  "restaurant_id": "{{restaurantId}}"
+}
+
+### Add a structured item (server computes price + snapshots options)
+POST {{host}}/api/sessions/{{sessionId}}/items
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "{{userName}}",
+  "dish_id": "{{dishId}}",
+  "option_ids": ["{{optionSizeId}}", "{{optionToppingId}}"],
+  "note": "ohne Knoblauch"
+}
+
 ### --- error cases (for sanity-checking) -------------------------------
 
 ### Missing token → 401

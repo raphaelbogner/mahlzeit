@@ -4,8 +4,9 @@ import { navigate, useRoute } from './hooks/useRoute'
 import { LoginForm } from './components/LoginForm'
 import { WorkspaceList } from './components/WorkspaceList'
 import { WorkspaceDetail } from './components/WorkspaceDetail'
+import { ToastProvider } from './components/Toast'
 
-function App() {
+function AppInner() {
   const auth = useAuth()
   const route = useRoute()
 
@@ -79,4 +80,10 @@ function App() {
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <ToastProvider>
+      <AppInner />
+    </ToastProvider>
+  )
+}

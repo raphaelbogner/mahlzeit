@@ -3,6 +3,7 @@ import { createWorkspace } from '../api/workspaces'
 import type { WorkspaceDetail } from '../api/workspaces'
 import { ApiError } from '../api/client'
 import { CopyButton } from './CopyButton'
+import { useToast } from './Toast'
 
 export interface CreateWorkspaceFormProps {
   onCreated: (workspace: WorkspaceDetail) => void
@@ -12,19 +13,18 @@ export interface CreateWorkspaceFormProps {
 export function CreateWorkspaceForm({ onCreated, onClose }: CreateWorkspaceFormProps) {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<WorkspaceDetail | null>(null)
+  const { showError } = useToast()
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
     setBusy(true)
     try {
       const ws = await createWorkspace(name.trim())
       setCreated(ws)
       onCreated(ws)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Anlegen fehlgeschlagen.')
+      showError(err instanceof ApiError ? err.message : 'Anlegen fehlgeschlagen.')
     } finally {
       setBusy(false)
     }
@@ -83,11 +83,6 @@ export function CreateWorkspaceForm({ onCreated, onClose }: CreateWorkspaceFormP
           className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
         />
       </div>
-      {error ? (
-        <div className="mt-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-          {error}
-        </div>
-      ) : null}
       <div className="mt-4 flex justify-end gap-2">
         <button
           type="button"

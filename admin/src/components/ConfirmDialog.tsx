@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export interface ConfirmDialogProps {
   open: boolean
@@ -27,10 +27,34 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const [typed, setTyped] = useState('')
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
-    if (!open) setTyped('')
-  }, [open])
+    if (!open) {
+      setTyped('')
+      return
+    }
+    // Move focus into the dialog: input if required, otherwise the cancel
+    // button (safer default for destructive dialogs).
+    if (requireText && inputRef.current) {
+      inputRef.current.focus()
+    } else if (cancelButtonRef.current) {
+      cancelButtonRef.current.focus()
+    }
+  }, [open, requireText])
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent): void {
+      if (e.key === 'Escape' && !busy) {
+        e.preventDefault()
+        onCancel()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, busy, onCancel])
 
   if (!open) return null
 
@@ -56,22 +80,23 @@ export function ConfirmDialog({
 
         {requireText ? (
           <div className="mt-4">
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-200">
+            <label htmlFor="confirm-require-input" className="block text-sm font-medium text-neutral-700 dark:text-neutral-200">
               Zur Bestätigung „{requireText}" eingeben
             </label>
             <input
+              id="confirm-require-input"
+              ref={inputRef}
               type="text"
-              autoFocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
-              aria-label="Bestätigungs-Eingabe"
             />
           </div>
         ) : null}
 
         <div className="mt-6 flex justify-end gap-2">
           <button
+            ref={cancelButtonRef}
             type="button"
             onClick={onCancel}
             disabled={busy}

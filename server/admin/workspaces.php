@@ -58,23 +58,31 @@ function handle_admin_workspaces_route(string $method, array $segments): void
 
 function admin_workspaces_list(): void
 {
-    // Single query with subselects — N is small (one row per workspace).
-    $sql = 'SELECT
+    // Single query with correlated subselects — N is small (one row per workspace).
+    // Note: last_activity is computed as two separate MAX() subqueries instead of
+    // a UNION inside a derived table, because correlated references from a
+    // derived table to an outer column require LATERAL — supported in MySQL 8.0.14+
+    // but NOT in MariaDB. Combining the two timestamps in PHP keeps it portable.
+    $sql = "SELECT
               w.id, w.token, w.name, w.created_at,
               (SELECT COUNT(*) FROM sessions s WHERE s.workspace_id = w.id) AS sessions_total,
-              (SELECT COUNT(*) FROM sessions s WHERE s.workspace_id = w.id AND s.status = "open") AS sessions_open,
+              (SELECT COUNT(*) FROM sessions s WHERE s.workspace_id = w.id AND s.status = 'open') AS sessions_open,
               (SELECT COUNT(*) FROM items i JOIN sessions s ON s.id = i.session_id WHERE s.workspace_id = w.id) AS items_total,
               (SELECT COUNT(*) FROM restaurants r WHERE r.workspace_id = w.id) AS restaurants_total,
-              (SELECT MAX(latest) FROM (
-                  SELECT MAX(s.created_at) AS latest FROM sessions s WHERE s.workspace_id = w.id
-                  UNION ALL
-                  SELECT MAX(i.added_at) FROM items i JOIN sessions s ON s.id = i.session_id WHERE s.workspace_id = w.id
-              ) t) AS last_activity
+              (SELECT MAX(s.created_at) FROM sessions s WHERE s.workspace_id = w.id) AS last_session_at,
+              (SELECT MAX(i.added_at) FROM items i JOIN sessions s ON s.id = i.session_id WHERE s.workspace_id = w.id) AS last_item_at
             FROM workspaces w
-            ORDER BY w.created_at DESC';
+            ORDER BY w.created_at DESC";
     $rows = db()->query($sql)->fetchAll();
 
     $workspaces = array_map(static function (array $row): array {
+        $candidates = array_filter(
+            [$row['last_session_at'] ?? null, $row['last_item_at'] ?? null],
+            static fn ($v) => $v !== null
+        );
+        // DATETIME strings are lexicographically sortable, so max() works.
+        $lastActivity = $candidates === [] ? null : max($candidates);
+
         return [
             'id'         => (int)$row['id'],
             'name'       => (string)$row['name'],
@@ -86,7 +94,7 @@ function admin_workspaces_list(): void
                 'sessions_open'     => (int)$row['sessions_open'],
                 'items_total'       => (int)$row['items_total'],
                 'restaurants_total' => (int)$row['restaurants_total'],
-                'last_activity'     => $row['last_activity'],
+                'last_activity'     => $lastActivity,
             ],
         ];
     }, $rows);
@@ -115,16 +123,16 @@ function admin_workspaces_get(int $id, int $status = 200): void
     // Note: PDO with EMULATE_PREPARES=false forbids reusing the same named
     // placeholder more than once, so each workspace_id reference gets its own.
     $statsStmt = db()->prepare(
-        'SELECT
+        "SELECT
             (SELECT COUNT(*) FROM sessions s WHERE s.workspace_id = :wid1) AS sessions_total,
-            (SELECT COUNT(*) FROM sessions s WHERE s.workspace_id = :wid2 AND s.status = "open") AS sessions_open,
+            (SELECT COUNT(*) FROM sessions s WHERE s.workspace_id = :wid2 AND s.status = 'open') AS sessions_open,
             (SELECT COUNT(*) FROM items i JOIN sessions s ON s.id = i.session_id WHERE s.workspace_id = :wid3) AS items_total,
             (SELECT COUNT(*) FROM restaurants r WHERE r.workspace_id = :wid4) AS restaurants_total,
             (SELECT MAX(latest) FROM (
                 SELECT MAX(s.created_at) AS latest FROM sessions s WHERE s.workspace_id = :wid5
                 UNION ALL
                 SELECT MAX(i.added_at) FROM items i JOIN sessions s ON s.id = i.session_id WHERE s.workspace_id = :wid6
-            ) t) AS last_activity'
+            ) t) AS last_activity"
     );
     $statsStmt->execute([
         ':wid1' => $id, ':wid2' => $id, ':wid3' => $id,

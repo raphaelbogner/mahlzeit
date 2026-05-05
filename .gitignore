@@ -6,6 +6,7 @@ dist/
 dist-admin/
 client/dist/
 admin/dist/
+deploy/output/
 
 # Local config / secrets
 config.php

@@ -32,26 +32,22 @@ export function CreateWorkspaceForm({ onCreated, onClose }: CreateWorkspaceFormP
 
   if (created) {
     return (
-      <div className="rounded-lg border border-green-200 bg-green-50 p-5 dark:border-green-900 dark:bg-green-950/40">
-        <h3 className="text-base font-semibold text-green-900 dark:text-green-200">
+      <div className="alert-success animate-fade-in-up">
+        <h3 className="text-base font-semibold text-emerald-900">
           Workspace „{created.name}" angelegt
         </h3>
-        <p className="mt-2 text-sm text-green-800 dark:text-green-300">
+        <p className="mt-2 text-sm text-emerald-800">
           Diesen Link an die Workspace-Mitglieder weitergeben. Der Link ist die
           einzige Möglichkeit zum Zugriff — bitte gut aufbewahren.
         </p>
-        <div className="mt-3 flex items-center gap-2 rounded border border-green-300 bg-white p-2 dark:border-green-800 dark:bg-neutral-900">
-          <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs text-neutral-800 dark:text-neutral-200">
+        <div className="mt-3 flex items-center gap-2 rounded-lg bg-white p-2 ring-1 ring-emerald-200">
+          <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs text-stone-800">
             {created.url}
           </code>
           <CopyButton value={created.url} label="Link kopieren" />
         </div>
         <div className="mt-4 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
-          >
+          <button type="button" onClick={onClose} className="btn-secondary">
             Schließen
           </button>
         </div>
@@ -60,15 +56,10 @@ export function CreateWorkspaceForm({ onCreated, onClose }: CreateWorkspaceFormP
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900"
-    >
-      <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-        Neuen Workspace anlegen
-      </h3>
+    <form onSubmit={submit} className="card-pad animate-fade-in-up">
+      <h3 className="h-section">Neuen Workspace anlegen</h3>
       <div className="mt-3">
-        <label htmlFor="ws-name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-200">
+        <label htmlFor="ws-name" className="label">
           Name
         </label>
         <input
@@ -80,22 +71,17 @@ export function CreateWorkspaceForm({ onCreated, onClose }: CreateWorkspaceFormP
           maxLength={120}
           required
           placeholder="z. B. Acme GmbH"
-          className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+          className="input"
         />
       </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={busy}
-          className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
-        >
+      <div className="mt-5 flex justify-end gap-2">
+        <button type="button" onClick={onClose} disabled={busy} className="btn-secondary">
           Abbrechen
         </button>
         <button
           type="submit"
           disabled={busy || name.trim().length === 0}
-          className="rounded bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+          className="btn-primary"
         >
           {busy ? 'Lege an…' : 'Anlegen'}
         </button>

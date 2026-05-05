@@ -26,7 +26,7 @@ function AppInner() {
 
   if (auth.status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50 text-sm text-neutral-500 dark:bg-neutral-950">
+      <div className="flex min-h-screen items-center justify-center bg-stone-50 text-sm text-stone-500">
         Lade…
       </div>
     )
@@ -65,14 +65,10 @@ function AppInner() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-      <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-neutral-900">
-        <p className="text-sm text-neutral-600 dark:text-neutral-300">Seite nicht gefunden.</p>
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="mt-3 rounded bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
-        >
+    <div className="flex min-h-screen items-center justify-center bg-stone-50 p-4">
+      <div className="card-pad text-center">
+        <p className="help">Seite nicht gefunden.</p>
+        <button type="button" onClick={() => navigate('/')} className="btn-primary mt-3">
           Zur Übersicht
         </button>
       </div>

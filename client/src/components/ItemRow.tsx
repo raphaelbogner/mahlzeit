@@ -131,19 +131,19 @@ export function ItemRow({
 
   if (editing) {
     return (
-      <li className="rounded border border-blue-300 bg-blue-50 p-3">
+      <li className="rounded-2xl bg-orange-50 p-4 ring-1 ring-orange-200">
         <form onSubmit={handleSave} className="space-y-2" noValidate>
           <input
             type="text"
             value={dish}
             onChange={(e) => setDish(e.target.value)}
             maxLength={200}
-            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            className="input"
             aria-invalid={errors.dish ? 'true' : 'false'}
             aria-label="Gericht"
           />
           {errors.dish && (
-            <p className="text-xs text-red-600" role="alert">
+            <p className="text-xs text-rose-600" role="alert">
               {errors.dish}
             </p>
           )}
@@ -153,7 +153,7 @@ export function ItemRow({
             onChange={(e) => setNote(e.target.value)}
             maxLength={300}
             placeholder="Anmerkung"
-            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            className="input"
             aria-label="Anmerkung"
           />
           <input
@@ -162,28 +162,24 @@ export function ItemRow({
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder="Preis"
-            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            className="input"
             aria-invalid={errors.price ? 'true' : 'false'}
             aria-label="Preis"
           />
           {errors.price && (
-            <p className="text-xs text-red-600" role="alert">
+            <p className="text-xs text-rose-600" role="alert">
               {errors.price}
             </p>
           )}
           <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={busy}
-              className="flex-1 rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
+            <button type="submit" disabled={busy} className="btn-primary flex-1 btn-sm">
               {busy ? 'Speichert…' : 'Speichern'}
             </button>
             <button
               type="button"
               onClick={cancelEdit}
               disabled={busy}
-              className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+              className="btn-secondary flex-1 btn-sm"
             >
               Abbrechen
             </button>
@@ -194,20 +190,20 @@ export function ItemRow({
   }
 
   return (
-    <li className="rounded border border-gray-200 bg-white p-3">
+    <li className="rounded-2xl bg-white p-4 shadow-card ring-1 ring-stone-200/70 transition hover:ring-stone-300">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm">
-            <span className="font-medium">{item.dish}</span>
+          <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+            <span className="font-semibold text-stone-900">{item.dish}</span>
             {item.price_cents !== null && (
-              <span className="ml-2 text-gray-700">{fmtPrice(item.price_cents)}</span>
+              <span className="tabular-nums text-stone-700">{fmtPrice(item.price_cents)}</span>
             )}
           </p>
           {item.options && item.options.length > 0 && (
-            <p className="mt-0.5 text-sm text-gray-600">{renderOptions(item.options)}</p>
+            <p className="mt-0.5 text-sm text-stone-600">{renderOptions(item.options)}</p>
           )}
-          {item.note && <p className="mt-0.5 text-sm text-gray-600">{item.note}</p>}
-          <p className="mt-1 text-xs text-gray-500">{item.user_name}</p>
+          {item.note && <p className="mt-0.5 text-sm text-stone-600">{item.note}</p>}
+          <p className="mt-1 help-xs">{item.user_name}</p>
         </div>
         {canEdit && !confirmingDelete && (
           <div className="flex shrink-0 gap-1">
@@ -215,7 +211,7 @@ export function ItemRow({
               type="button"
               onClick={startEdit}
               disabled={busy}
-              className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+              className="btn-ghost btn-sm"
               aria-label="Bearbeiten"
             >
               Bearbeiten
@@ -224,7 +220,7 @@ export function ItemRow({
               type="button"
               onClick={() => setConfirmingDelete(true)}
               disabled={busy}
-              className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+              className="btn-danger-soft btn-sm"
               aria-label="Löschen"
             >
               Löschen
@@ -233,20 +229,20 @@ export function ItemRow({
         )}
         {canEdit && confirmingDelete && (
           <div className="flex shrink-0 items-center gap-1">
-            <span className="text-xs text-gray-700">Sicher?</span>
+            <span className="text-xs text-stone-700">Sicher?</span>
             <button
               type="button"
               onClick={handleDelete}
               disabled={busy}
-              className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              className="btn-danger btn-sm"
             >
-              Ja, löschen
+              Ja
             </button>
             <button
               type="button"
               onClick={() => setConfirmingDelete(false)}
               disabled={busy}
-              className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+              className="btn-secondary btn-sm"
             >
               Nein
             </button>

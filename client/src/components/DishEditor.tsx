@@ -61,8 +61,8 @@ function DishPriceInput({ value, onCommit }: DishPriceInputProps) {
       onBlur={commit}
       placeholder="0,00"
       className={
-        'w-28 rounded border px-2 py-1 text-right ' +
-        (valid ? 'border-gray-300' : 'border-red-400')
+        'block w-28 rounded-lg bg-white px-3 py-1.5 text-right text-sm text-stone-900 shadow-sm ring-1 transition focus:outline-none focus:ring-2 focus:ring-orange-500 ' +
+        (valid ? 'ring-stone-300' : 'ring-rose-400')
       }
       aria-label="Basispreis"
       aria-invalid={!valid}
@@ -99,32 +99,32 @@ export function DishEditor({ dish, onChange, onRemove }: DishEditorProps) {
   }
 
   return (
-    <div className="rounded border border-gray-300 bg-white p-3">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+    <div className="card-pad">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <input
           type="text"
           value={dish.name}
           onChange={(e) => setName(e.target.value)}
           maxLength={200}
           placeholder="Name des Gerichts"
-          className="flex-1 rounded border border-gray-300 px-2 py-1 text-base font-medium"
+          className="input flex-1 text-base font-semibold"
           aria-label="Gerichtsname"
         />
         <button
           type="button"
           onClick={onRemove}
-          className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+          className="btn-danger-soft btn-sm"
         >
           Gericht entfernen
         </button>
       </div>
 
-      <div className="mb-3 flex items-center gap-2 text-sm">
-        <label className="text-gray-700" htmlFor={`base-${dish.id ?? dish.name}`}>
+      <div className="mb-4 flex items-center gap-2 text-sm">
+        <label className="text-stone-700" htmlFor={`base-${dish.id ?? dish.name}`}>
           Basispreis €:
         </label>
         <DishPriceInput value={dish.base_price_cents} onCommit={setBasePrice} />
-        <span className="text-xs text-gray-500">{fmtPrice(dish.base_price_cents)}</span>
+        <span className="text-xs text-stone-500 tabular-nums">{fmtPrice(dish.base_price_cents)}</span>
       </div>
 
       <div className="space-y-2">
@@ -138,11 +138,7 @@ export function DishEditor({ dish, onChange, onRemove }: DishEditorProps) {
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={addGroup}
-        className="mt-2 rounded border border-dashed border-gray-400 px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
-      >
+      <button type="button" onClick={addGroup} className="btn-dashed btn-sm mt-3">
         + Optionsgruppe hinzufügen
       </button>
     </div>

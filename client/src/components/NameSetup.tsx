@@ -39,65 +39,70 @@ export function NameSetup({
   }
 
   return (
-    <div className="mx-auto max-w-md p-6">
-      <h1 className="mb-4 text-2xl font-semibold">Willkommen bei Mahlzeit</h1>
-      <p className="mb-6 text-sm text-gray-600">
-        Wie sollen wir dich nennen? Die IBAN ist optional und wird nur für
-        Geld-Aufstellungen am Ende einer Sammelbestellung verwendet.
-      </p>
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        <div>
-          <label htmlFor="name" className="mb-1 block text-sm font-medium">
-            Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={120}
-            autoComplete="name"
-            className="w-full rounded border border-gray-300 px-3 py-2"
-            aria-invalid={errors.name ? 'true' : 'false'}
-          />
-          {errors.name && (
-            <p className="mt-1 text-sm text-red-600" role="alert">
-              {errors.name}
-            </p>
-          )}
+    <div className="flex min-h-screen items-center justify-center bg-stone-50 p-4">
+      <div className="w-full max-w-md">
+        <div className="mb-5 flex items-center gap-2">
+          <span className="brand-dot" aria-hidden="true" />
+          <span className="text-sm font-semibold tracking-tight text-stone-900">Mahlzeit</span>
         </div>
+        <div className="card-pad animate-fade-in-up">
+          <h1 className="h-page">Willkommen</h1>
+          <p className="mt-2 help">
+            Wie sollen wir dich nennen? Die IBAN ist optional und wird nur für Geld-Aufstellungen
+            am Ende einer Sammelbestellung verwendet.
+          </p>
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+            <div>
+              <label htmlFor="name" className="label">
+                Name
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={120}
+                autoComplete="name"
+                className="input"
+                aria-invalid={errors.name ? 'true' : 'false'}
+              />
+              {errors.name && (
+                <p className="field-error" role="alert">
+                  {errors.name}
+                </p>
+              )}
+            </div>
 
-        <div>
-          <label htmlFor="iban" className="mb-1 block text-sm font-medium">
-            IBAN <span className="text-gray-500">(optional)</span>
-          </label>
-          <input
-            id="iban"
-            type="text"
-            value={iban}
-            onChange={(e) => setIban(e.target.value)}
-            onBlur={(e) => setIban(formatIban(e.target.value))}
-            placeholder="AT61 1904 3002 3457 3201"
-            maxLength={42}
-            autoComplete="off"
-            spellCheck={false}
-            className="w-full rounded border border-gray-300 px-3 py-2 font-mono"
-            aria-invalid={errors.iban ? 'true' : 'false'}
-          />
-          {errors.iban && (
-            <p className="mt-1 text-sm text-red-600" role="alert">
-              {errors.iban}
-            </p>
-          )}
+            <div>
+              <label htmlFor="iban" className="label">
+                IBAN <span className="font-normal text-stone-400">(optional)</span>
+              </label>
+              <input
+                id="iban"
+                type="text"
+                value={iban}
+                onChange={(e) => setIban(e.target.value)}
+                onBlur={(e) => setIban(formatIban(e.target.value))}
+                placeholder="AT61 1904 3002 3457 3201"
+                maxLength={42}
+                autoComplete="off"
+                spellCheck={false}
+                className="input-mono"
+                aria-invalid={errors.iban ? 'true' : 'false'}
+              />
+              {errors.iban && (
+                <p className="field-error" role="alert">
+                  {errors.iban}
+                </p>
+              )}
+            </div>
+
+            <button type="submit" className="btn-primary mt-6 w-full">
+              Weiter
+            </button>
+          </form>
         </div>
-
-        <button
-          type="submit"
-          className="w-full rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
-        >
-          Weiter
-        </button>
-      </form>
+      </div>
     </div>
   );
 }

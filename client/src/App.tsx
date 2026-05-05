@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { getWorkspaceToken } from './api/client';
-import { useProfile } from './hooks/useProfile';
+import { ProfileProvider, useProfile } from './hooks/useProfile';
 import { NameSetup } from './components/NameSetup';
 import { SessionsPage } from './components/SessionsPage';
 import { SessionDetail } from './components/SessionDetail';
@@ -10,22 +10,24 @@ import { ToastProvider } from './components/Toast';
 
 function MissingToken() {
   return (
-    <div className="mx-auto max-w-md p-6">
-      <h1 className="mb-4 text-2xl font-semibold">Kein Workspace-Link</h1>
-      <p className="text-sm text-gray-700">
-        Diese Seite kann nur über einen geteilten Workspace-Link mit einem{' '}
-        <code>?w=…</code>-Parameter geöffnet werden. Bitte bei der Person nachfragen,
-        die euch den Link geschickt hat.
-      </p>
+    <div className="flex min-h-screen items-center justify-center bg-stone-50 p-4">
+      <div className="w-full max-w-md card-pad text-center">
+        <span className="brand-dot mx-auto mb-4 block" aria-hidden="true" />
+        <h1 className="h-page">Kein Workspace-Link</h1>
+        <p className="mt-3 text-sm text-stone-600">
+          Diese Seite kann nur über einen geteilten Workspace-Link mit einem{' '}
+          <code className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs">?w=…</code>
+          -Parameter geöffnet werden. Bitte bei der Person nachfragen, die euch den Link geschickt
+          hat.
+        </p>
+      </div>
     </div>
   );
 }
 
-export default function App() {
-  const token = getWorkspaceToken();
+function AppRouter() {
   const { profile, saveProfile, ready } = useProfile();
 
-  if (!token) return <MissingToken />;
   if (!ready) return null;
 
   if (!profile) {
@@ -44,5 +46,16 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </ToastProvider>
+  );
+}
+
+export default function App() {
+  const token = getWorkspaceToken();
+  if (!token) return <MissingToken />;
+
+  return (
+    <ProfileProvider>
+      <AppRouter />
+    </ProfileProvider>
   );
 }

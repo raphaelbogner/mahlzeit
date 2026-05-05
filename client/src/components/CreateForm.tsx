@@ -13,9 +13,10 @@ import { useToast } from './Toast';
 export interface CreateFormProps {
   profile: Profile;
   onCreated: (session: Session) => void;
+  onCancel?: () => void;
 }
 
-export function CreateForm({ profile, onCreated }: CreateFormProps) {
+export function CreateForm({ profile, onCreated, onCancel }: CreateFormProps) {
   const [title, setTitle] = useState<string>('');
   const [restaurant, setRestaurant] = useState<RestaurantSelection>({
     restaurant_id: null,
@@ -80,13 +81,29 @@ export function CreateForm({ profile, onCreated }: CreateFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded border border-gray-200 bg-white p-4"
+      className="card-pad space-y-4 animate-fade-in-up"
       noValidate
     >
-      <h2 className="text-lg font-medium">Neue Sammelbestellung</h2>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="h-section">Neue Sammelbestellung starten</h2>
+          <p className="mt-1 help-xs">Titel und Restaurant — alles weitere ist optional.</p>
+        </div>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="btn-ghost btn-sm -mr-1.5"
+            aria-label="Abbrechen"
+          >
+            ✕
+          </button>
+        ) : null}
+      </div>
 
       <div>
-        <label htmlFor="title" className="mb-1 block text-sm font-medium">
+        <label htmlFor="title" className="label">
           Titel
         </label>
         <input
@@ -96,19 +113,19 @@ export function CreateForm({ profile, onCreated }: CreateFormProps) {
           onChange={(e) => setTitle(e.target.value)}
           maxLength={200}
           placeholder="z. B. Pizza Freitag"
-          className="w-full rounded border border-gray-300 px-3 py-2"
+          className="input"
           aria-invalid={errors.title ? 'true' : 'false'}
         />
         {errors.title && (
-          <p className="mt-1 text-sm text-red-600" role="alert">
+          <p className="field-error" role="alert">
             {errors.title}
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="restaurant" className="mb-1 block text-sm font-medium">
-          Restaurant <span className="text-gray-500">(optional)</span>
+        <label htmlFor="restaurant" className="label">
+          Restaurant <span className="font-normal text-stone-400">(optional)</span>
         </label>
         <RestaurantCombobox
           id="restaurant"
@@ -119,8 +136,8 @@ export function CreateForm({ profile, onCreated }: CreateFormProps) {
       </div>
 
       <div>
-        <label htmlFor="deadline" className="mb-1 block text-sm font-medium">
-          Bestellschluss <span className="text-gray-500">(optional)</span>
+        <label htmlFor="deadline" className="label">
+          Bestellschluss <span className="font-normal text-stone-400">(optional)</span>
         </label>
         <input
           id="deadline"
@@ -129,13 +146,14 @@ export function CreateForm({ profile, onCreated }: CreateFormProps) {
           onChange={(e) => setDeadline(e.target.value)}
           maxLength={50}
           placeholder="z. B. heute 11:30"
-          className="w-full rounded border border-gray-300 px-3 py-2"
+          className="input"
         />
       </div>
 
       <div>
-        <label htmlFor="creator_iban" className="mb-1 block text-sm font-medium">
-          IBAN für Geld-Aufstellung <span className="text-gray-500">(optional)</span>
+        <label htmlFor="creator_iban" className="label">
+          IBAN für Geld-Aufstellung{' '}
+          <span className="font-normal text-stone-400">(optional)</span>
         </label>
         <input
           id="creator_iban"
@@ -147,23 +165,35 @@ export function CreateForm({ profile, onCreated }: CreateFormProps) {
           maxLength={42}
           autoComplete="off"
           spellCheck={false}
-          className="w-full rounded border border-gray-300 px-3 py-2 font-mono"
+          className="input-mono"
           aria-invalid={errors.iban ? 'true' : 'false'}
         />
         {errors.iban && (
-          <p className="mt-1 text-sm text-red-600" role="alert">
+          <p className="field-error" role="alert">
             {errors.iban}
           </p>
         )}
       </div>
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-      >
-        {submitting ? 'Wird angelegt…' : 'Sammelbestellung starten'}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="btn-primary flex-1"
+        >
+          {submitting ? 'Wird angelegt…' : 'Sammelbestellung starten'}
+        </button>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="btn-secondary"
+          >
+            Abbrechen
+          </button>
+        ) : null}
+      </div>
     </form>
   );
 }

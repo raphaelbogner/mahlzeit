@@ -41,8 +41,6 @@ interface OptionDeltaInputProps {
   ariaLabel: string;
 }
 
-// Local buffer keeps mid-typing strings ("1,") usable; we only commit on
-// blur or when the buffer parses cleanly.
 function OptionDeltaInput({ value, onCommit, ariaLabel }: OptionDeltaInputProps) {
   const [buf, setBuf] = useState<string>(formatDeltaForInput(value));
   const [valid, setValid] = useState<boolean>(true);
@@ -74,8 +72,8 @@ function OptionDeltaInput({ value, onCommit, ariaLabel }: OptionDeltaInputProps)
       onBlur={commit}
       placeholder="+0,00"
       className={
-        'w-24 rounded border px-2 py-1 text-right ' +
-        (valid ? 'border-gray-300' : 'border-red-400')
+        'block w-24 rounded-lg bg-white px-2.5 py-1.5 text-right text-sm text-stone-900 shadow-sm ring-1 transition focus:outline-none focus:ring-2 focus:ring-orange-500 ' +
+        (valid ? 'ring-stone-300' : 'ring-rose-400')
       }
       aria-label={ariaLabel}
       aria-invalid={!valid}
@@ -107,26 +105,26 @@ export function OptionGroupEditor({ group, onChange, onRemove }: OptionGroupEdit
   }
 
   return (
-    <div className="rounded border border-gray-200 bg-gray-50 p-3">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
+    <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-sm">
-          <span className="text-gray-700">Gruppe:</span>
+          <span className="text-stone-700">Gruppe:</span>
           <input
             type="text"
             value={group.name}
             onChange={(e) => setName(e.target.value)}
             maxLength={120}
             placeholder="z. B. Größe"
-            className="rounded border border-gray-300 px-2 py-1 text-sm"
+            className="block rounded-lg bg-white px-2.5 py-1 text-sm text-stone-900 shadow-sm ring-1 ring-stone-300 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
             aria-label="Gruppenname"
           />
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <span className="text-gray-700">Auswahl:</span>
+          <span className="text-stone-700">Auswahl:</span>
           <select
             value={group.selection_type}
             onChange={(e) => setSelectionType(e.target.value as SelectionType)}
-            className="rounded border border-gray-300 px-2 py-1 text-sm"
+            className="block rounded-lg bg-white px-2.5 py-1 text-sm text-stone-900 shadow-sm ring-1 ring-stone-300 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
             aria-label="Auswahltyp"
           >
             <option value="single">eine (single)</option>
@@ -136,17 +134,17 @@ export function OptionGroupEditor({ group, onChange, onRemove }: OptionGroupEdit
         <button
           type="button"
           onClick={onRemove}
-          className="ml-auto rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+          className="btn-danger-soft btn-sm ml-auto"
           aria-label="Gruppe entfernen"
         >
           Gruppe entfernen
         </button>
       </div>
 
-      <ul className="space-y-1">
+      <ul className="space-y-1.5">
         {group.options.map((opt, idx) => (
           <li key={idx} className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-gray-500" aria-hidden="true">
+            <span className="text-stone-400" aria-hidden="true">
               {group.selection_type === 'single' ? '○' : '☐'}
             </span>
             <input
@@ -155,7 +153,7 @@ export function OptionGroupEditor({ group, onChange, onRemove }: OptionGroupEdit
               onChange={(e) => updateOption(idx, { name: e.target.value })}
               maxLength={200}
               placeholder="Name"
-              className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1"
+              className="min-w-0 flex-1 rounded-lg bg-white px-2.5 py-1.5 text-sm text-stone-900 shadow-sm ring-1 ring-stone-300 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
               aria-label={`Option ${idx + 1} Name`}
             />
             <OptionDeltaInput
@@ -163,26 +161,22 @@ export function OptionGroupEditor({ group, onChange, onRemove }: OptionGroupEdit
               onCommit={(next) => updateOption(idx, { price_delta_cents: next })}
               ariaLabel={`Option ${idx + 1} Preisaufschlag`}
             />
-            <span className="hidden w-20 shrink-0 text-right text-xs text-gray-500 sm:inline-block">
+            <span className="hidden w-20 shrink-0 text-right text-xs text-stone-500 tabular-nums sm:inline-block">
               {opt.price_delta_cents === 0 ? '±0' : fmtPrice(opt.price_delta_cents)}
             </span>
             <button
               type="button"
               onClick={() => removeOption(idx)}
-              className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+              className="btn-danger-soft btn-sm"
               aria-label={`Option ${idx + 1} entfernen`}
             >
-              Entfernen
+              ✕
             </button>
           </li>
         ))}
       </ul>
 
-      <button
-        type="button"
-        onClick={addOption}
-        className="mt-2 rounded border border-dashed border-gray-400 px-3 py-1 text-xs text-gray-700 hover:bg-white"
-      >
+      <button type="button" onClick={addOption} className="btn-dashed btn-sm mt-3">
         + Option hinzufügen
       </button>
     </div>

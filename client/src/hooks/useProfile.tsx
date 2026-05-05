@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import type { ReactNode } from 'react';
 import { generateId } from '../lib/ids';
 
 const STORAGE_KEY = 'mahlzeit.profile.v1';
@@ -62,7 +70,9 @@ export interface UseProfileResult {
   ready: boolean;
 }
 
-export function useProfile(): UseProfileResult {
+const ProfileContext = createContext<UseProfileResult | null>(null);
+
+function useProfileImpl(): UseProfileResult {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [ready, setReady] = useState<boolean>(false);
 
@@ -106,5 +116,19 @@ export function useProfile(): UseProfileResult {
     setProfile(null);
   }, []);
 
-  return { profile, saveProfile, updateProfile, clearProfile, ready };
+  return useMemo(
+    () => ({ profile, saveProfile, updateProfile, clearProfile, ready }),
+    [profile, saveProfile, updateProfile, clearProfile, ready],
+  );
+}
+
+export function ProfileProvider({ children }: { children: ReactNode }) {
+  const value = useProfileImpl();
+  return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
+}
+
+export function useProfile(): UseProfileResult {
+  const ctx = useContext(ProfileContext);
+  if (!ctx) throw new Error('useProfile must be used inside <ProfileProvider>');
+  return ctx;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export interface ConfirmDialogProps {
   open: boolean
@@ -35,8 +36,6 @@ export function ConfirmDialog({
       setTyped('')
       return
     }
-    // Move focus into the dialog: input if required, otherwise the cancel
-    // button (safer default for destructive dialogs).
     if (requireText && inputRef.current) {
       inputRef.current.focus()
     } else if (cancelButtonRef.current) {
@@ -56,31 +55,46 @@ export function ConfirmDialog({
     return () => window.removeEventListener('keydown', onKey)
   }, [open, busy, onCancel])
 
+  // Lock body scroll while the dialog is mounted so the page behind doesn't
+  // shift around when the dialog is taller than the viewport.
+  useEffect(() => {
+    if (!open) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [open])
+
   if (!open) return null
 
   const canConfirm = !busy && (!requireText || typed === requireText)
 
-  return (
+  // Render through a portal so the dialog escapes any ancestor with
+  // `backdrop-filter` (e.g. the sticky app-header), which would otherwise
+  // become the containing block for `position: fixed` and clip the modal.
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/50 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onCancel()
-      }}
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-neutral-900">
-        <h2 id="confirm-title" className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+      <div
+        className="flex min-h-full items-center justify-center p-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !busy) onCancel()
+        }}
+      >
+      <div className="w-full max-w-md card p-6 shadow-pop animate-fade-in-up">
+        <h2 id="confirm-title" className="text-lg font-semibold text-stone-900">
           {title}
         </h2>
-        {description ? (
-          <div className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">{description}</div>
-        ) : null}
+        {description ? <div className="mt-3 text-sm text-stone-600">{description}</div> : null}
 
         {requireText ? (
           <div className="mt-4">
-            <label htmlFor="confirm-require-input" className="block text-sm font-medium text-neutral-700 dark:text-neutral-200">
+            <label htmlFor="confirm-require-input" className="label">
               Zur Bestätigung „{requireText}" eingeben
             </label>
             <input
@@ -89,7 +103,7 @@ export function ConfirmDialog({
               type="text"
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+              className="input"
             />
           </div>
         ) : null}
@@ -100,7 +114,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+            className="btn-secondary"
           >
             {cancelLabel}
           </button>
@@ -108,17 +122,14 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={!canConfirm}
-            className={
-              'rounded px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ' +
-              (destructive
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-violet-600 hover:bg-violet-700')
-            }
+            className={destructive ? 'btn-danger' : 'btn-primary'}
           >
             {busy ? 'Bitte warten…' : confirmLabel}
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

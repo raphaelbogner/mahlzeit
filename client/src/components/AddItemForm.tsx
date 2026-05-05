@@ -65,30 +65,27 @@ export function AddItemForm({
     !forceFreitext && restaurantId !== null && dishes !== null && dishes.length > 0;
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-base font-medium">Eintrag hinzufügen</h3>
+    <section className="space-y-3">
+      <h3 className="h-section">Eintrag hinzufügen</h3>
 
       {restaurantId !== null && menuLoading && (
         <div
-          className="space-y-3 rounded border border-gray-200 bg-white p-4"
+          className="card-pad space-y-3"
           aria-busy="true"
           aria-label="Menü wird geladen"
         >
-          <div className="h-4 w-24 animate-pulse rounded bg-gray-200" />
-          <div className="h-9 w-full animate-pulse rounded bg-gray-100" />
+          <div className="h-4 w-24 animate-pulse rounded bg-stone-200" />
+          <div className="h-9 w-full animate-pulse rounded bg-stone-100" />
           <div className="space-y-2">
-            <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
-            <div className="h-6 w-3/4 animate-pulse rounded bg-gray-100" />
-            <div className="h-6 w-2/3 animate-pulse rounded bg-gray-100" />
+            <div className="h-4 w-32 animate-pulse rounded bg-stone-200" />
+            <div className="h-6 w-3/4 animate-pulse rounded bg-stone-100" />
+            <div className="h-6 w-2/3 animate-pulse rounded bg-stone-100" />
           </div>
         </div>
       )}
 
       {restaurantId !== null && menuError && (
-        <div
-          role="alert"
-          className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700"
-        >
+        <div role="alert" className="alert-error">
           {menuError}
         </div>
       )}
@@ -117,13 +114,13 @@ export function AddItemForm({
           <button
             type="button"
             onClick={() => setForceFreitext((v) => !v)}
-            className="text-xs text-blue-600 hover:underline"
+            className="btn-link"
           >
             {forceFreitext ? '← zurück zur Auswahl' : '— oder Freitext eingeben —'}
           </button>
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -193,13 +190,9 @@ function FreitextItemForm({ sessionId, profile, onAdded, disabled }: FreitextIte
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-3 rounded border border-gray-200 bg-white p-4"
-      noValidate
-    >
+    <form onSubmit={handleSubmit} className="card-pad space-y-3" noValidate>
       <div>
-        <label htmlFor="dish" className="mb-1 block text-sm font-medium">
+        <label htmlFor="dish" className="label">
           Gericht
         </label>
         <input
@@ -210,19 +203,19 @@ function FreitextItemForm({ sessionId, profile, onAdded, disabled }: FreitextIte
           maxLength={200}
           placeholder="z. B. Margherita"
           disabled={disabled || submitting}
-          className="w-full rounded border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+          className="input"
           aria-invalid={errors.dish ? 'true' : 'false'}
         />
         {errors.dish && (
-          <p className="mt-1 text-sm text-red-600" role="alert">
+          <p className="field-error" role="alert">
             {errors.dish}
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="note" className="mb-1 block text-sm font-medium">
-          Anmerkung <span className="text-gray-500">(optional)</span>
+        <label htmlFor="note" className="label">
+          Anmerkung <span className="font-normal text-stone-400">(optional)</span>
         </label>
         <input
           id="note"
@@ -232,13 +225,13 @@ function FreitextItemForm({ sessionId, profile, onAdded, disabled }: FreitextIte
           maxLength={300}
           placeholder="z. B. ohne Knoblauch"
           disabled={disabled || submitting}
-          className="w-full rounded border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+          className="input"
         />
       </div>
 
       <div>
-        <label htmlFor="price" className="mb-1 block text-sm font-medium">
-          Preis <span className="text-gray-500">(optional)</span>
+        <label htmlFor="price" className="label">
+          Preis <span className="font-normal text-stone-400">(optional)</span>
         </label>
         <input
           id="price"
@@ -248,23 +241,23 @@ function FreitextItemForm({ sessionId, profile, onAdded, disabled }: FreitextIte
           onChange={(e) => setPrice(e.target.value)}
           placeholder="z. B. 9,50"
           disabled={disabled || submitting}
-          className="w-full rounded border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+          className="input"
           aria-invalid={errors.price ? 'true' : 'false'}
         />
         {errors.price && (
-          <p className="mt-1 text-sm text-red-600" role="alert">
+          <p className="field-error" role="alert">
             {errors.price}
           </p>
         )}
         {price.trim() && !errors.price && parsePrice(price) !== null && (
-          <p className="mt-1 text-xs text-gray-500">{fmtPrice(parsePrice(price)!)}</p>
+          <p className="mt-1 help-xs tabular-nums">{fmtPrice(parsePrice(price)!)}</p>
         )}
       </div>
 
       <button
         type="submit"
         disabled={disabled || submitting}
-        className="w-full rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        className="btn-primary w-full"
       >
         {submitting ? 'Wird hinzugefügt…' : 'Hinzufügen'}
       </button>

@@ -15,7 +15,6 @@ export function CopyButton({ value, label = 'Kopieren', className = '' }: CopyBu
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
     } catch {
-      // Fallback for environments without clipboard permission.
       const ta = document.createElement('textarea')
       ta.value = value
       document.body.appendChild(ta)
@@ -34,13 +33,10 @@ export function CopyButton({ value, label = 'Kopieren', className = '' }: CopyBu
     <button
       type="button"
       onClick={copy}
-      className={
-        'inline-flex items-center rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 ' +
-        className
-      }
+      className={`btn-secondary btn-sm ${className}`}
       aria-label={label}
     >
-      {copied ? 'Kopiert!' : label}
+      {copied ? 'Kopiert ✓' : label}
     </button>
   )
 }

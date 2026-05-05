@@ -50,12 +50,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             role={t.kind === 'error' ? 'alert' : 'status'}
             className={
-              'pointer-events-auto w-full max-w-md rounded px-4 py-2 text-sm shadow-lg ' +
-              (t.kind === 'error'
-                ? 'bg-red-600 text-white'
+              t.kind === 'error'
+                ? 'toast-error'
                 : t.kind === 'success'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-neutral-800 text-white')
+                  ? 'toast-success'
+                  : 'toast-info'
             }
           >
             {t.message}
@@ -72,7 +71,6 @@ export function useToast(): ToastContextValue {
   return ctx
 }
 
-// Hook that observes an error and shows a toast for it once when it changes.
 export function useErrorToast(error: { message: string } | string | null): void {
   const { showError } = useToast()
   useEffect(() => {

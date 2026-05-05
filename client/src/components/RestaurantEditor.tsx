@@ -16,6 +16,7 @@ import type {
   Restaurant,
 } from '../types/api';
 import { DishEditor } from './DishEditor';
+import { ProfileMenu } from './ProfileMenu';
 import { useErrorToast, useToast } from './Toast';
 import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
 
@@ -128,19 +129,23 @@ export function RestaurantEditor() {
 
   if (loading && !restaurant) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6" aria-busy="true">
-        <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
-        <div className="h-9 w-full animate-pulse rounded bg-gray-200" />
-        <div className="h-32 animate-pulse rounded bg-gray-100" />
-        <div className="h-32 animate-pulse rounded bg-gray-100" />
+      <div className="page">
+        <div className="page-container-wide space-y-4" aria-busy="true">
+          <div className="h-4 w-32 animate-pulse rounded bg-stone-200" />
+          <div className="h-9 w-full animate-pulse rounded bg-stone-200" />
+          <div className="h-32 animate-pulse rounded-2xl bg-stone-100" />
+          <div className="h-32 animate-pulse rounded-2xl bg-stone-100" />
+        </div>
       </div>
     );
   }
 
   if (!restaurant) {
     return (
-      <div className="mx-auto max-w-3xl p-4 sm:p-6">
-        <p className="text-sm text-gray-700">Restaurant nicht gefunden.</p>
+      <div className="page">
+        <div className="page-container-wide">
+          <p className="help">Restaurant nicht gefunden.</p>
+        </div>
       </div>
     );
   }
@@ -206,20 +211,51 @@ export function RestaurantEditor() {
   }
 
   return (
-    <form
-      onSubmit={handleSave}
-      className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6"
-      noValidate
-    >
-      <div>
-        <WorkspaceLink to="/restaurants" className="text-sm text-blue-600 hover:underline">
-          ← Zurück zur Liste
-        </WorkspaceLink>
-      </div>
+    <div className="page pb-24">
+      <header className="app-header">
+        <div className="app-header-inner">
+          <WorkspaceLink to="/restaurants" className="btn-link">
+            ← Restaurants
+          </WorkspaceLink>
+          <div className="flex items-center gap-3">
+            <ProfileMenu />
+            {!confirmingDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                disabled={saving}
+                className="btn-danger-soft btn-sm"
+              >
+                Restaurant löschen
+              </button>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-stone-700">Sicher löschen?</span>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={saving}
+                  className="btn-danger btn-sm"
+                >
+                  Ja, löschen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={saving}
+                  className="btn-secondary btn-sm"
+                >
+                  Nein
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
 
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex-1">
-          <label htmlFor="restaurant-name" className="mb-1 block text-sm font-medium">
+      <form onSubmit={handleSave} className="page-container-wide space-y-5" noValidate>
+        <div className="card-pad">
+          <label htmlFor="restaurant-name" className="label">
             Restaurant-Name
           </label>
           <input
@@ -228,75 +264,40 @@ export function RestaurantEditor() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={200}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-base font-medium"
+            className="input text-lg font-semibold"
           />
         </div>
-        {!confirmingDelete ? (
-          <button
-            type="button"
-            onClick={() => setConfirmingDelete(true)}
-            disabled={saving}
-            className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
-          >
-            Restaurant löschen
+
+        <section className="space-y-3">
+          {dishes.length === 0 ? (
+            <div className="empty">
+              Noch keine Gerichte. Klick „+ Gericht hinzufügen", um eines anzulegen.
+            </div>
+          ) : (
+            dishes.map((d, idx) => (
+              <DishEditor
+                key={idx}
+                dish={d}
+                onChange={(next) => updateDish(idx, next)}
+                onRemove={() => removeDish(idx)}
+              />
+            ))
+          )}
+
+          <button type="button" onClick={addDish} className="btn-dashed w-full">
+            + Gericht hinzufügen
           </button>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-gray-700">Sicher löschen?</span>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={saving}
-              className="rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              Ja, löschen
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmingDelete(false)}
-              disabled={saving}
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
-            >
-              Nein
-            </button>
-          </div>
-        )}
-      </header>
+        </section>
 
-      <section className="space-y-3">
-        {dishes.length === 0 ? (
-          <div className="rounded border border-dashed border-gray-300 p-6 text-center text-sm text-gray-600">
-            Noch keine Gerichte. Klick „+ Gericht hinzufügen", um eines anzulegen.
-          </div>
-        ) : (
-          dishes.map((d, idx) => (
-            <DishEditor
-              key={idx}
-              dish={d}
-              onChange={(next) => updateDish(idx, next)}
-              onRemove={() => removeDish(idx)}
-            />
-          ))
-        )}
-
-        <button
-          type="button"
-          onClick={addDish}
-          className="rounded border border-dashed border-gray-400 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-        >
-          + Gericht hinzufügen
-        </button>
-      </section>
-
-      <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t border-gray-200 bg-gray-50 px-4 py-3 sm:-mx-6 sm:px-6">
-        <button
-          type="submit"
-          disabled={saving || !dirty}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {saving ? 'Speichert…' : 'Speichern'}
-        </button>
-      </div>
-    </form>
+        <div className="sticky bottom-0 -mx-4 mt-6 flex items-center justify-between gap-3 border-t border-stone-200/80 bg-white/80 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+          <span className="help-xs">
+            {dirty ? 'Ungespeicherte Änderungen.' : 'Alles gespeichert.'}
+          </span>
+          <button type="submit" disabled={saving || !dirty} className="btn-primary">
+            {saving ? 'Speichert…' : 'Speichern'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

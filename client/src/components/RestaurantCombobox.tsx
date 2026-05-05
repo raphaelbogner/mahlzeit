@@ -66,10 +66,10 @@ export function RestaurantCombobox({
         disabled={disabled}
         maxLength={200}
         placeholder="z. B. Pizzeria Roma"
-        className="w-full rounded border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+        className="input"
       />
       {value.restaurant_id !== null && (
-        <p className="mt-1 text-xs text-green-700">
+        <p className="mt-1 text-xs text-emerald-700">
           ✓ Verknüpft mit bestehendem Restaurant
         </p>
       )}
@@ -77,7 +77,7 @@ export function RestaurantCombobox({
         <ul
           id={`${inputId}-listbox`}
           role="listbox"
-          className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded border border-gray-200 bg-white shadow-lg"
+          className="absolute z-20 mt-1.5 max-h-60 w-full overflow-auto rounded-xl bg-white p-1 shadow-pop ring-1 ring-stone-200 animate-fade-in-up"
         >
           {matches.map((r) => (
             <li
@@ -85,16 +85,16 @@ export function RestaurantCombobox({
               role="option"
               aria-selected={r.id === value.restaurant_id}
               className={
-                'cursor-pointer px-3 py-2 text-sm hover:bg-blue-50 ' +
-                (r.id === value.restaurant_id ? 'bg-blue-100' : '')
+                'flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition hover:bg-orange-50 ' +
+                (r.id === value.restaurant_id ? 'bg-orange-100 text-stone-900' : 'text-stone-700')
               }
               onMouseDown={(e) => {
                 e.preventDefault();
                 pick(r);
               }}
             >
-              {r.name}
-              <span className="ml-2 text-xs text-gray-500">
+              <span className="truncate">{r.name}</span>
+              <span className="ml-2 shrink-0 text-xs text-stone-500 tabular-nums">
                 {r.dish_count} {r.dish_count === 1 ? 'Gericht' : 'Gerichte'}
               </span>
             </li>

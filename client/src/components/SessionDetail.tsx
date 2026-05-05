@@ -4,6 +4,7 @@ import { useSession } from '../hooks/useSession';
 import { useErrorToast, useToast } from './Toast';
 import { AddItemForm } from './AddItemForm';
 import { ItemRow } from './ItemRow';
+import { ProfileMenu } from './ProfileMenu';
 import { Summary } from './Summary';
 import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
 import { ApiError } from '../api/client';
@@ -37,11 +38,13 @@ export function SessionDetail({ profile }: SessionDetailProps) {
 
   if (loading && !session) {
     return (
-      <div className="mx-auto max-w-2xl p-4 sm:p-6">
-        <div className="h-8 w-48 animate-pulse rounded bg-gray-200" />
-        <div className="mt-4 space-y-2" aria-busy="true">
-          <div className="h-16 animate-pulse rounded bg-gray-100" />
-          <div className="h-16 animate-pulse rounded bg-gray-100" />
+      <div className="page">
+        <div className="page-container">
+          <div className="h-8 w-48 animate-pulse rounded bg-stone-200" />
+          <div className="mt-6 space-y-2.5" aria-busy="true">
+            <div className="h-20 animate-pulse rounded-2xl bg-white ring-1 ring-stone-200/70" />
+            <div className="h-20 animate-pulse rounded-2xl bg-white ring-1 ring-stone-200/70" />
+          </div>
         </div>
       </div>
     );
@@ -49,17 +52,19 @@ export function SessionDetail({ profile }: SessionDetailProps) {
 
   if (!session) {
     return (
-      <div className="mx-auto max-w-2xl p-4 sm:p-6">
-        <p className="text-sm text-gray-700">
-          Sammelbestellung nicht gefunden.{' '}
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="text-blue-600 underline"
-          >
-            Zurück zur Liste
-          </button>
-        </p>
+      <div className="page">
+        <div className="page-container">
+          <p className="help">
+            Sammelbestellung nicht gefunden.{' '}
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="btn-link"
+            >
+              Zurück zur Liste
+            </button>
+          </p>
+        </div>
       </div>
     );
   }
@@ -115,123 +120,128 @@ export function SessionDetail({ profile }: SessionDetailProps) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-4 sm:p-6">
-      <div className="mb-4">
-        <WorkspaceLink to="/" className="text-sm text-blue-600 hover:underline">
-          ← Zurück zur Liste
-        </WorkspaceLink>
-      </div>
-
-      <header className="mb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold sm:text-2xl">{session.title}</h1>
-          {!isOpen && (
-            <span className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700">
-              geschlossen
-            </span>
-          )}
+    <div className="page">
+      <header className="app-header">
+        <div className="app-header-inner">
+          <WorkspaceLink to="/" className="btn-link">
+            ← Sammelbestellungen
+          </WorkspaceLink>
+          <ProfileMenu />
         </div>
-        {session.restaurant_name && (
-          <p className="mt-1 text-sm text-gray-700">{session.restaurant_name}</p>
-        )}
-        <p className="mt-1 text-xs text-gray-500">
-          von {session.creator_name}
-          {session.deadline ? ` · bis ${session.deadline}` : ''}
-        </p>
-        {session.creator_iban && (
-          <p className="mt-1 font-mono text-xs text-gray-500">
-            IBAN: {formatIban(session.creator_iban)}
-          </p>
-        )}
       </header>
 
-      {isCreator && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleToggleStatus}
-            disabled={busy}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
-          >
-            {isOpen ? 'Schließen' : 'Wieder öffnen'}
-          </button>
-          {!confirmingDelete ? (
-            <button
-              type="button"
-              onClick={() => setConfirmingDelete(true)}
-              disabled={busy}
-              className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
-            >
-              Löschen
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-700">Wirklich löschen?</span>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={busy}
-                className="rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                Ja, löschen
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(false)}
-                disabled={busy}
-                className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
-              >
-                Nein
-              </button>
+      <main className="page-container space-y-6">
+        <header className="card-pad">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="h-page truncate">{session.title}</h1>
+                {isOpen ? (
+                  <span className="badge-success">offen</span>
+                ) : (
+                  <span className="badge-neutral">geschlossen</span>
+                )}
+              </div>
+              {session.restaurant_name && (
+                <p className="mt-1 text-sm text-stone-600">{session.restaurant_name}</p>
+              )}
+              <p className="mt-1 help-xs">
+                von {session.creator_name}
+                {session.deadline ? ` · bis ${session.deadline}` : ''}
+              </p>
+              {session.creator_iban && (
+                <p className="mt-1 font-mono text-xs text-stone-500">
+                  IBAN: {formatIban(session.creator_iban)}
+                </p>
+              )}
             </div>
+
+            {isCreator && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleToggleStatus}
+                  disabled={busy}
+                  className="btn-secondary btn-sm"
+                >
+                  {isOpen ? 'Schließen' : 'Wieder öffnen'}
+                </button>
+                {!confirmingDelete ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(true)}
+                    disabled={busy}
+                    className="btn-danger-soft btn-sm"
+                  >
+                    Löschen
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-stone-700">Wirklich?</span>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={busy}
+                      className="btn-danger btn-sm"
+                    >
+                      Ja, löschen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDelete(false)}
+                      disabled={busy}
+                      className="btn-secondary btn-sm"
+                    >
+                      Nein
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </header>
+
+        <section>
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="h-section">Einträge ({session.items.length})</h2>
+            <span className="text-sm text-stone-700 tabular-nums">
+              Summe: <span className="font-semibold text-stone-900">{fmtPrice(totalCents(session))}</span>
+            </span>
+          </div>
+          {session.items.length === 0 ? (
+            <p className="empty">Noch keine Einträge. Sei die erste Person.</p>
+          ) : (
+            <ul className="space-y-2">
+              {session.items.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  sessionId={session.id}
+                  profile={profile}
+                  sessionOpen={isOpen}
+                  onChanged={handleItemChanged}
+                  onDeleted={handleItemDeleted}
+                />
+              ))}
+            </ul>
           )}
-        </div>
-      )}
+        </section>
 
-      <section className="mb-6">
-        <div className="mb-2 flex items-baseline justify-between">
-          <h2 className="text-base font-medium">
-            Einträge ({session.items.length})
-          </h2>
-          <span className="text-sm text-gray-700">
-            Summe: {fmtPrice(totalCents(session))}
-          </span>
-        </div>
-        {session.items.length === 0 ? (
-          <p className="rounded border border-dashed border-gray-300 p-4 text-center text-sm text-gray-600">
-            Noch keine Einträge.
-          </p>
+        {isOpen ? (
+          <AddItemForm
+            sessionId={session.id}
+            restaurantId={session.restaurant_id}
+            profile={profile}
+            onAdded={handleItemAdded}
+          />
         ) : (
-          <ul className="space-y-2">
-            {session.items.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                sessionId={session.id}
-                profile={profile}
-                sessionOpen={isOpen}
-                onChanged={handleItemChanged}
-                onDeleted={handleItemDeleted}
-              />
-            ))}
-          </ul>
+          <p className="card-pad text-center text-sm text-stone-600">
+            Diese Sammelbestellung ist geschlossen.
+          </p>
         )}
-      </section>
 
-      {isOpen ? (
-        <AddItemForm
-          sessionId={session.id}
-          restaurantId={session.restaurant_id}
-          profile={profile}
-          onAdded={handleItemAdded}
-        />
-      ) : (
-        <p className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-600">
-          Diese Sammelbestellung ist geschlossen.
-        </p>
-      )}
-
-      <Summary session={session} />
+        <Summary session={session} />
+      </main>
     </div>
   );
 }

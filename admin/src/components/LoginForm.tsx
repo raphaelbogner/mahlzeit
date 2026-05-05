@@ -37,18 +37,18 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 p-4 dark:bg-neutral-950">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
-      >
-        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-          Mahlzeit · Admin
-        </h1>
-        <p className="mt-1 text-sm text-neutral-500">Bitte einloggen.</p>
+    <div className="flex min-h-screen items-center justify-center bg-stone-50 p-4">
+      <form onSubmit={submit} className="w-full max-w-sm card-pad animate-fade-in-up">
+        <div className="mb-5 flex items-center gap-2">
+          <span className="brand-dot" aria-hidden="true" />
+          <h1 className="text-lg font-semibold tracking-tight text-stone-900">
+            Mahlzeit · Admin
+          </h1>
+        </div>
+        <p className="help -mt-2 mb-5">Bitte einloggen.</p>
 
-        <div className="mt-5">
-          <label htmlFor="username" className="block text-sm font-medium text-neutral-700 dark:text-neutral-200">
+        <div>
+          <label htmlFor="username" className="label">
             Username
           </label>
           <input
@@ -58,12 +58,12 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="input"
           />
         </div>
 
         <div className="mt-4">
-          <label htmlFor="password" className="block text-sm font-medium text-neutral-700 dark:text-neutral-200">
+          <label htmlFor="password" className="label">
             Passwort
           </label>
           <input
@@ -73,24 +73,17 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="mt-1 w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-violet-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+            className="input"
           />
         </div>
 
         {error ? (
-          <div
-            className="mt-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
-            role="alert"
-          >
+          <div className="alert-error mt-4" role="alert">
             {error}
           </div>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="mt-5 w-full rounded bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-        >
+        <button type="submit" disabled={busy} className="btn-primary mt-6 w-full">
           {busy ? 'Bitte warten…' : 'Login'}
         </button>
       </form>

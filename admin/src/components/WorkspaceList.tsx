@@ -37,43 +37,35 @@ export function WorkspaceList({ onLogout, username }: WorkspaceListProps) {
   }, [reload])
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <div>
-            <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              Mahlzeit · Admin
-            </h1>
-            <p className="text-xs text-neutral-500">Eingeloggt als {username}</p>
+    <div className="page">
+      <header className="app-header">
+        <div className="app-header-inner">
+          <div className="brand">
+            <span className="brand-dot" aria-hidden="true" />
+            <span>Mahlzeit · Admin</span>
+            <span className="hidden text-stone-300 sm:inline">·</span>
+            <span className="hidden text-xs font-normal text-stone-500 sm:inline">
+              {username}
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => void onLogout()}
-            className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
-          >
+          <button type="button" onClick={() => void onLogout()} className="btn-secondary btn-sm">
             Logout
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+      <main className="page-container">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-            Workspaces
-          </h2>
+          <h1 className="h-page">Workspaces</h1>
           {!showCreate ? (
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="rounded bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
-            >
+            <button type="button" onClick={() => setShowCreate(true)} className="btn-primary">
               + Neuen anlegen
             </button>
           ) : null}
         </div>
 
         {showCreate ? (
-          <div className="mt-4">
+          <div className="mt-5">
             <CreateWorkspaceForm
               onCreated={() => void reload()}
               onClose={() => setShowCreate(false)}
@@ -81,56 +73,65 @@ export function WorkspaceList({ onLogout, username }: WorkspaceListProps) {
           </div>
         ) : null}
 
-        <div className="mt-4">
+        <div className="mt-6">
           {workspaces === null ? (
             <WorkspaceListSkeleton />
           ) : workspaces.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
-              Noch keine Workspaces angelegt. Klick oben auf
-              {' '}<span className="font-medium">„+ Neuen anlegen"</span>, um den ersten anzulegen.
+            <div className="empty">
+              Noch keine Workspaces angelegt. Klick oben auf{' '}
+              <span className="font-medium text-stone-800">„+ Neuen anlegen"</span>, um den ersten
+              anzulegen.
             </div>
           ) : (
             <>
               {/* Desktop / tablet: table */}
-              <div className="hidden overflow-hidden rounded-lg border border-neutral-200 bg-white sm:block dark:border-neutral-800 dark:bg-neutral-900">
+              <div className="card hidden overflow-hidden sm:block">
                 <table className="w-full text-sm">
-                  <thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-950">
+                  <thead className="bg-stone-50/70 text-xs uppercase tracking-wider text-stone-500">
                     <tr>
-                      <th scope="col" className="px-4 py-2 text-left font-medium">Name</th>
-                      <th scope="col" className="px-4 py-2 text-right font-medium">Sessions</th>
-                      <th scope="col" className="px-4 py-2 text-left font-medium">Letzte Aktivität</th>
-                      <th scope="col" className="px-4 py-2 text-right font-medium">Aktionen</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">
+                        Name
+                      </th>
+                      <th scope="col" className="px-5 py-3 text-right font-semibold">
+                        Sessions
+                      </th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">
+                        Letzte Aktivität
+                      </th>
+                      <th scope="col" className="px-5 py-3 text-right font-semibold">
+                        Aktionen
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                  <tbody className="divide-y divide-stone-200/70">
                     {workspaces.map((w) => (
-                      <tr key={w.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
-                        <td className="px-4 py-3">
+                      <tr key={w.id} className="transition hover:bg-stone-50/70">
+                        <td className="px-5 py-3.5">
                           <button
                             type="button"
                             onClick={() => navigate(`/workspaces/${w.id}`)}
-                            className="font-medium text-violet-700 hover:underline dark:text-violet-300"
+                            className="font-medium text-stone-900 hover:text-orange-600"
                           >
                             {w.name}
                           </button>
                         </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-neutral-700 dark:text-neutral-200">
+                        <td className="px-5 py-3.5 text-right tabular-nums text-stone-700">
                           {w.stats.sessions_total}
                           {w.stats.sessions_open > 0 ? (
-                            <span className="ml-1 text-xs text-violet-600">
-                              ({w.stats.sessions_open} offen)
+                            <span className="ml-1.5 badge-info">
+                              {w.stats.sessions_open} offen
                             </span>
                           ) : null}
                         </td>
-                        <td className="px-4 py-3 text-neutral-600 dark:text-neutral-300">
+                        <td className="px-5 py-3.5 text-stone-600">
                           {formatRelativeTime(w.stats.last_activity)}
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="inline-flex items-center gap-1">
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="inline-flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => navigate(`/workspaces/${w.id}`)}
-                              className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+                              className="btn-secondary btn-sm"
                             >
                               Öffnen
                             </button>
@@ -144,29 +145,26 @@ export function WorkspaceList({ onLogout, username }: WorkspaceListProps) {
               </div>
 
               {/* Mobile: stacked cards */}
-              <ul className="space-y-2 sm:hidden">
+              <ul className="space-y-3 sm:hidden">
                 {workspaces.map((w) => (
-                  <li
-                    key={w.id}
-                    className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
-                  >
+                  <li key={w.id} className="card p-4">
                     <button
                       type="button"
                       onClick={() => navigate(`/workspaces/${w.id}`)}
                       className="block w-full text-left"
                     >
                       <div className="flex items-baseline justify-between gap-2">
-                        <h3 className="truncate font-medium text-violet-700 dark:text-violet-300">
-                          {w.name}
-                        </h3>
-                        <span className="shrink-0 tabular-nums text-xs text-neutral-600 dark:text-neutral-300">
+                        <h3 className="truncate font-medium text-stone-900">{w.name}</h3>
+                        <span className="shrink-0 tabular-nums text-xs text-stone-600">
                           {w.stats.sessions_total} Sessions
-                          {w.stats.sessions_open > 0 ? (
-                            <span className="ml-1 text-violet-600">({w.stats.sessions_open} offen)</span>
-                          ) : null}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-neutral-500">
+                      {w.stats.sessions_open > 0 ? (
+                        <span className="mt-1 inline-flex badge-info">
+                          {w.stats.sessions_open} offen
+                        </span>
+                      ) : null}
+                      <p className="mt-1.5 help-xs">
                         Letzte Aktivität: {formatRelativeTime(w.stats.last_activity)}
                       </p>
                     </button>
@@ -174,7 +172,7 @@ export function WorkspaceList({ onLogout, username }: WorkspaceListProps) {
                       <button
                         type="button"
                         onClick={() => navigate(`/workspaces/${w.id}`)}
-                        className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+                        className="btn-secondary btn-sm"
                       >
                         Öffnen
                       </button>
@@ -193,19 +191,15 @@ export function WorkspaceList({ onLogout, username }: WorkspaceListProps) {
 
 function WorkspaceListSkeleton() {
   return (
-    <div
-      className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
-      aria-busy="true"
-      aria-label="Workspaces werden geladen"
-    >
-      <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
+    <div className="card overflow-hidden" aria-busy="true" aria-label="Workspaces werden geladen">
+      <ul className="divide-y divide-stone-200/70">
         {[0, 1, 2].map((i) => (
-          <li key={i} className="flex items-center justify-between gap-4 px-4 py-3">
+          <li key={i} className="flex items-center justify-between gap-4 px-5 py-4">
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-1/3 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
-              <div className="h-3 w-1/4 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+              <div className="h-4 w-1/3 animate-pulse rounded bg-stone-200" />
+              <div className="h-3 w-1/4 animate-pulse rounded bg-stone-100" />
             </div>
-            <div className="h-6 w-24 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+            <div className="h-6 w-24 animate-pulse rounded bg-stone-100" />
           </li>
         ))}
       </ul>

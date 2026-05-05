@@ -101,35 +101,27 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
 
   if (workspace === null) {
     return (
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-        <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="text-sm text-violet-700 hover:underline dark:text-violet-300"
-            >
+      <div className="page">
+        <header className="app-header">
+          <div className="app-header-inner">
+            <button type="button" onClick={() => navigate('/')} className="btn-link">
               ← Zurück
             </button>
             <button
               type="button"
               onClick={() => void onLogout()}
-              className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+              className="btn-secondary btn-sm"
             >
               Logout
             </button>
           </div>
         </header>
-        <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6" aria-busy="true">
+        <main className="page-container" aria-busy="true">
           {loadError ? (
-            <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+            <div className="alert-error">
               {loadError}
               <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => void reload()}
-                  className="rounded border border-red-400 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-neutral-900 dark:text-red-200"
-                >
+                <button type="button" onClick={() => void reload()} className="btn-secondary btn-sm">
                   Erneut versuchen
                 </button>
               </div>
@@ -143,14 +135,14 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+    <div className="page">
+      <header className="app-header">
+        <div className="app-header-inner">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="text-sm text-violet-700 hover:underline dark:text-violet-300"
+              className="btn-link"
               aria-label="Zurück zur Übersicht"
             >
               ← Zurück
@@ -166,13 +158,13 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
                   value={editingName}
                   onChange={(e) => setEditingName(e.target.value)}
                   maxLength={120}
-                  className="rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+                  className="input max-w-xs"
                 />
                 <button
                   type="button"
                   onClick={() => void saveName()}
                   disabled={busy}
-                  className="rounded bg-violet-600 px-2 py-1 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                  className="btn-primary btn-sm"
                 >
                   Speichern
                 </button>
@@ -183,13 +175,13 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
                     setEditingName(workspace.name)
                   }}
                   disabled={busy}
-                  className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+                  className="btn-secondary btn-sm"
                 >
                   Abbrechen
                 </button>
               </div>
             ) : (
-              <h1 className="truncate text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+              <h1 className="truncate text-lg font-semibold tracking-tight text-stone-900">
                 {workspace.name}
               </h1>
             )}
@@ -197,7 +189,7 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
           <button
             type="button"
             onClick={() => void onLogout()}
-            className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+            className="btn-secondary btn-sm"
             aria-label={`Logout (${username})`}
           >
             Logout
@@ -205,137 +197,122 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-        <>
-            <section className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-              <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
-                Share-Link
-              </h3>
-              <div className="mt-2 flex items-center gap-2 rounded border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800">
-                <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs text-neutral-800 dark:text-neutral-200">
-                  {workspace.url}
-                </code>
-                <CopyButton value={workspace.url} label="Kopieren" />
-              </div>
-              <p className="mt-2 text-xs text-neutral-500">
-                Wer den Link hat, hat vollen Zugriff auf den Workspace. Bitte
-                nicht in öffentlichen Kanälen teilen.
-              </p>
-            </section>
+      <main className="page-container space-y-6">
+        <section className="card-pad">
+          <h3 className="h-card">Share-Link</h3>
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-stone-50 p-2 ring-1 ring-stone-200">
+            <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs text-stone-800">
+              {workspace.url}
+            </code>
+            <CopyButton value={workspace.url} label="Kopieren" />
+          </div>
+          <p className="mt-2 help-xs">
+            Wer den Link hat, hat vollen Zugriff auf den Workspace. Bitte nicht in öffentlichen
+            Kanälen teilen.
+          </p>
+        </section>
 
-            <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-              <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
-                Statistik
-              </h3>
-              <dl className="mt-3 grid grid-cols-2 gap-y-2 text-sm sm:grid-cols-3">
-                <Stat label="Sessions gesamt" value={workspace.stats.sessions_total} />
-                <Stat label="Davon offen" value={workspace.stats.sessions_open} />
-                <Stat label="Items gesamt" value={workspace.stats.items_total} />
-                <Stat label="Restaurants" value={workspace.stats.restaurants_total} />
-                <Stat
-                  label="Letzte Aktivität"
-                  value={formatRelativeTime(workspace.stats.last_activity)}
-                />
-                <Stat label="Angelegt" value={formatDateTime(workspace.created_at)} />
-              </dl>
-            </section>
-
-            <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-              <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
-                Aktive Nutzer ({workspace.active_users.length})
-              </h3>
-              <p className="mt-2 rounded bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-                ⓘ Diese Liste zeigt alle Personen, die mindestens eine Bestellung
-                eingetragen oder eine Sammelbestellung gestartet haben. Die
-                Liste basiert auf Aktivität, nicht auf Mitgliedschaft. Personen
-                mit gleichem Namen erscheinen als ein Eintrag.
-              </p>
-              {workspace.active_users.length === 0 ? (
-                <p className="mt-3 text-sm text-neutral-500">Noch keine Aktivität.</p>
-              ) : (
-                <ul className="mt-3 divide-y divide-neutral-200 dark:divide-neutral-800">
-                  {workspace.active_users.map((u) => (
-                    <li
-                      key={u.name}
-                      className="flex items-center justify-between py-2 text-sm"
-                    >
-                      <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                        {u.name}
-                      </span>
-                      <span className="text-neutral-500">
-                        {u.items_count} Items · zuletzt {formatRelativeTime(u.last_seen)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-              <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
-                Verwaltung
-              </h3>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRenaming(true)}
-                  disabled={renaming}
-                  className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
-                >
-                  Name ändern
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDialog('rotate')}
-                  className="rounded border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
-                >
-                  Token rotieren
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDialog('delete')}
-                  className="rounded border border-red-400 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-700 dark:bg-red-950/40 dark:text-red-200"
-                >
-                  Workspace löschen
-                </button>
-              </div>
-            </section>
-
-            <ConfirmDialog
-              open={dialog === 'rotate'}
-              title="Token rotieren?"
-              description={
-                <>
-                  Der bisherige Link funktioniert nach Bestätigung nicht mehr.
-                  Alle Nutzer brauchen anschließend den neuen Link. Diese
-                  Aktion kann nicht rückgängig gemacht werden.
-                </>
-              }
-              confirmLabel="Token rotieren"
-              destructive={true}
-              busy={busy}
-              onConfirm={() => void confirmRotate()}
-              onCancel={() => setDialog(null)}
+        <section className="card-pad">
+          <h3 className="h-card">Statistik</h3>
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 text-sm sm:grid-cols-3">
+            <Stat label="Sessions gesamt" value={workspace.stats.sessions_total} />
+            <Stat label="Davon offen" value={workspace.stats.sessions_open} />
+            <Stat label="Items gesamt" value={workspace.stats.items_total} />
+            <Stat label="Restaurants" value={workspace.stats.restaurants_total} />
+            <Stat
+              label="Letzte Aktivität"
+              value={formatRelativeTime(workspace.stats.last_activity)}
             />
+            <Stat label="Angelegt" value={formatDateTime(workspace.created_at)} />
+          </dl>
+        </section>
 
-            <ConfirmDialog
-              open={dialog === 'delete'}
-              title="Workspace löschen?"
-              description={
-                <>
-                  Alle Daten dieses Workspaces werden unwiderruflich gelöscht:
-                  Sessions, Items, Restaurants, Speisekarten. Diese Aktion kann
-                  nicht rückgängig gemacht werden.
-                </>
-              }
-              requireText={workspace.name}
-              confirmLabel="Endgültig löschen"
-              destructive={true}
-              busy={busy}
-              onConfirm={() => void confirmDelete()}
-              onCancel={() => setDialog(null)}
-            />
-        </>
+        <section className="card-pad">
+          <h3 className="h-card">Aktive Nutzer ({workspace.active_users.length})</h3>
+          <p className="mt-3 alert-info">
+            ⓘ Diese Liste zeigt alle Personen, die mindestens eine Bestellung eingetragen oder eine
+            Sammelbestellung gestartet haben. Die Liste basiert auf Aktivität, nicht auf
+            Mitgliedschaft. Personen mit gleichem Namen erscheinen als ein Eintrag.
+          </p>
+          {workspace.active_users.length === 0 ? (
+            <p className="mt-4 help">Noch keine Aktivität.</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-stone-200/70">
+              {workspace.active_users.map((u) => (
+                <li
+                  key={u.name}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm"
+                >
+                  <span className="font-medium text-stone-800">{u.name}</span>
+                  <span className="text-stone-500">
+                    {u.items_count} Items · zuletzt {formatRelativeTime(u.last_seen)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="card-pad">
+          <h3 className="h-card">Verwaltung</h3>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              disabled={renaming}
+              className="btn-secondary"
+            >
+              Name ändern
+            </button>
+            <button
+              type="button"
+              onClick={() => setDialog('rotate')}
+              className="btn-warn-soft"
+            >
+              Token rotieren
+            </button>
+            <button
+              type="button"
+              onClick={() => setDialog('delete')}
+              className="btn-danger-soft"
+            >
+              Workspace löschen
+            </button>
+          </div>
+        </section>
+
+        <ConfirmDialog
+          open={dialog === 'rotate'}
+          title="Token rotieren?"
+          description={
+            <>
+              Der bisherige Link funktioniert nach Bestätigung nicht mehr. Alle Nutzer brauchen
+              anschließend den neuen Link. Diese Aktion kann nicht rückgängig gemacht werden.
+            </>
+          }
+          confirmLabel="Token rotieren"
+          destructive={true}
+          busy={busy}
+          onConfirm={() => void confirmRotate()}
+          onCancel={() => setDialog(null)}
+        />
+
+        <ConfirmDialog
+          open={dialog === 'delete'}
+          title="Workspace löschen?"
+          description={
+            <>
+              Alle Daten dieses Workspaces werden unwiderruflich gelöscht: Sessions, Items,
+              Restaurants, Speisekarten. Diese Aktion kann nicht rückgängig gemacht werden.
+            </>
+          }
+          requireText={workspace.name}
+          confirmLabel="Endgültig löschen"
+          destructive={true}
+          busy={busy}
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => setDialog(null)}
+        />
       </main>
     </div>
   )
@@ -344,8 +321,8 @@ export function WorkspaceDetail({ id, onLogout, username }: WorkspaceDetailProps
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="flex flex-col">
-      <dt className="text-xs uppercase tracking-wide text-neutral-500">{label}</dt>
-      <dd className="text-base font-medium text-neutral-900 dark:text-neutral-100">{value}</dd>
+      <dt className="text-xs font-medium uppercase tracking-wider text-stone-500">{label}</dt>
+      <dd className="mt-1 text-base font-semibold text-stone-900">{value}</dd>
     </div>
   )
 }
@@ -353,28 +330,28 @@ function Stat({ label, value }: { label: string; value: number | string }) {
 function WorkspaceDetailSkeleton() {
   return (
     <div className="space-y-6" aria-label="Workspace wird geladen">
-      <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="h-3 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
-        <div className="mt-3 h-9 w-full animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+      <div className="card-pad">
+        <div className="h-3 w-24 animate-pulse rounded bg-stone-200" />
+        <div className="mt-3 h-9 w-full animate-pulse rounded bg-stone-100" />
       </div>
-      <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="h-3 w-20 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+      <div className="card-pad">
+        <div className="h-3 w-20 animate-pulse rounded bg-stone-200" />
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="space-y-2">
-              <div className="h-3 w-20 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
-              <div className="h-5 w-16 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+              <div className="h-3 w-20 animate-pulse rounded bg-stone-100" />
+              <div className="h-5 w-16 animate-pulse rounded bg-stone-200" />
             </div>
           ))}
         </div>
       </div>
-      <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="h-3 w-32 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+      <div className="card-pad">
+        <div className="h-3 w-32 animate-pulse rounded bg-stone-200" />
         <ul className="mt-4 space-y-3">
           {[0, 1, 2].map((i) => (
             <li key={i} className="flex items-center justify-between">
-              <div className="h-4 w-1/3 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
-              <div className="h-3 w-1/4 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800/60" />
+              <div className="h-4 w-1/3 animate-pulse rounded bg-stone-100" />
+              <div className="h-3 w-1/4 animate-pulse rounded bg-stone-100" />
             </li>
           ))}
         </ul>

@@ -18,6 +18,7 @@ export interface Item {
   price_cents: number | null;
   options: ItemOptionSnapshot[] | null;
   added_at: string;
+  paid_at: string | null;
 }
 
 export interface SessionSummary {
@@ -32,6 +33,9 @@ export interface SessionSummary {
   status: SessionStatus;
   created_at: string;
   closed_at: string | null;
+  paid_by_user_id: string | null;
+  paid_by_user_name: string;
+  paid_by_iban: string;
   items_count: number | null;
   total_cents: number | null;
 }
@@ -103,6 +107,9 @@ export interface UpdateSessionInput {
   deadline?: string;
   creator_iban?: string;
   status?: SessionStatus;
+  paid_by_user_id?: string | null;
+  paid_by_user_name?: string;
+  paid_by_iban?: string;
 }
 
 export interface DeleteSessionInput {
@@ -132,6 +139,7 @@ export interface UpdateItemInput {
   dish?: string;
   note?: string;
   price_cents?: number | null;
+  paid?: boolean;
 }
 
 export interface DeleteItemInput {
@@ -160,6 +168,29 @@ export interface MenuDishInput {
 
 export interface MenuReplaceInput {
   dishes: MenuDishInput[];
+}
+
+// Workspace-scoped option group templates (saved option groups that can be
+// inserted into any dish in the same workspace).
+export interface OptionTemplateOption {
+  id: string;
+  name: string;
+  price_delta_cents: number;
+  sort_order: number;
+}
+
+export interface OptionTemplate {
+  id: string;
+  name: string;
+  selection_type: SelectionType;
+  created_at: string;
+  options: OptionTemplateOption[];
+}
+
+export interface CreateOptionTemplateInput {
+  name: string;
+  selection_type: SelectionType;
+  options: { name: string; price_delta_cents: number }[];
 }
 
 export interface ApiErrorBody {

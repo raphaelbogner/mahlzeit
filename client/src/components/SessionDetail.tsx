@@ -71,6 +71,7 @@ export function SessionDetail({ profile }: SessionDetailProps) {
 
   const isOpen = session.status === 'open';
   const isCreator = session.creator_id === profile.user_id;
+  const effectivePayerId = session.paid_by_user_id ?? session.creator_id;
 
   function handleItemAdded(item: Item): void {
     if (!session) return;
@@ -219,6 +220,7 @@ export function SessionDetail({ profile }: SessionDetailProps) {
                   sessionId={session.id}
                   profile={profile}
                   sessionOpen={isOpen}
+                  effectivePayerId={effectivePayerId}
                   onChanged={handleItemChanged}
                   onDeleted={handleItemDeleted}
                 />
@@ -240,7 +242,11 @@ export function SessionDetail({ profile }: SessionDetailProps) {
           </p>
         )}
 
-        <Summary session={session} />
+        <Summary
+          session={session}
+          profile={profile}
+          onSessionChanged={(next) => setSession(next)}
+        />
       </main>
     </div>
   );

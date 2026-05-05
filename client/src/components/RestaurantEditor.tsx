@@ -7,8 +7,11 @@ import {
   renameRestaurant,
   replaceMenu,
 } from '../api/restaurants';
+import { useOptionTemplates } from '../hooks/useOptionTemplates';
 import { useRestaurant } from '../hooks/useRestaurant';
+import { generateId } from '../lib/ids';
 import type {
+  CreateOptionTemplateInput,
   Dish,
   MenuDishInput,
   MenuOptionGroupInput,
@@ -17,10 +20,16 @@ import type {
 } from '../types/api';
 import { DishEditor } from './DishEditor';
 import { ProfileMenu } from './ProfileMenu';
+import { SortableItem, SortableList } from './Sortable';
 import { useErrorToast, useToast } from './Toast';
 import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
 
-function dishToInput(dish: Dish): MenuDishInput {
+// Local invariant: every editor item carries an id (server-assigned for
+// loaded items, client-generated for newly added ones). The id powers React
+// keys, drag-and-drop identity, and per-id collapsed state.
+type DishInput = MenuDishInput & { id: string };
+
+function dishToInput(dish: Dish): DishInput {
   return {
     id: dish.id,
     name: dish.name,
@@ -38,8 +47,8 @@ function dishToInput(dish: Dish): MenuDishInput {
   };
 }
 
-function emptyDish(): MenuDishInput {
-  return { name: '', base_price_cents: 0, option_groups: [] };
+function emptyDish(): DishInput {
+  return { id: generateId(), name: '', base_price_cents: 0, option_groups: [] };
 }
 
 interface ValidationError {
@@ -77,6 +86,8 @@ function validate(dishes: MenuDishInput[]): ValidationError | null {
   return null;
 }
 
+// Strip client-only ids before sending to the server. The server creates its
+// own ids for everything; sending temp client ids would just be ignored.
 function trimMenu(dishes: MenuDishInput[]): MenuDishInput[] {
   return dishes.map((d) => ({
     name: d.name.trim(),
@@ -98,21 +109,52 @@ export function RestaurantEditor() {
   const { restaurant, loading, error, setRestaurant } = useRestaurant(params.id);
   useErrorToast(error);
   const { showError, showInfo } = useToast();
+  const {
+    templates,
+    create: createTemplate,
+    remove: removeTemplate,
+  } = useOptionTemplates();
+
+  async function handleSaveTemplate(input: CreateOptionTemplateInput): Promise<void> {
+    try {
+      await createTemplate(input);
+      showInfo('Template gespeichert.');
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Template-Speichern fehlgeschlagen.');
+      throw err;
+    }
+  }
+
+  async function handleDeleteTemplate(id: string): Promise<void> {
+    try {
+      await removeTemplate(id);
+      showInfo('Template gelöscht.');
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Template-Löschen fehlgeschlagen.');
+    }
+  }
 
   // Whenever the loaded restaurant changes (e.g. after a save), re-seed the
   // local editor state. We use React 19's "compare during render" pattern
   // and identity-track the restaurant by reference.
   const [trackedRestaurant, setTrackedRestaurant] = useState<Restaurant | null>(restaurant);
-  const seedDishes = (r: Restaurant | null): MenuDishInput[] =>
+  const seedDishes = (r: Restaurant | null): DishInput[] =>
     r ? r.dishes.map(dishToInput) : [];
-  const seedSnapshot = (r: Restaurant | null, dishesIn: MenuDishInput[]): string =>
+  const seedSnapshot = (r: Restaurant | null, dishesIn: DishInput[]): string =>
     JSON.stringify({ name: r?.name ?? '', dishes: dishesIn });
 
   const [name, setName] = useState<string>(restaurant?.name ?? '');
-  const [dishes, setDishes] = useState<MenuDishInput[]>(() => seedDishes(restaurant));
+  const [dishes, setDishes] = useState<DishInput[]>(() => seedDishes(restaurant));
   const [originalSnapshot, setOriginalSnapshot] = useState<string>(() =>
     seedSnapshot(restaurant, seedDishes(restaurant)),
   );
+  // Collapsed state is keyed by dish id (not array index) so it survives
+  // reordering. Default-collapse all loaded dishes when the restaurant has
+  // more than one, so the editor stays compact on load.
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => {
+    const initial = seedDishes(restaurant);
+    return initial.length > 1 ? new Set(initial.map((d) => d.id)) : new Set();
+  });
 
   if (trackedRestaurant !== restaurant) {
     setTrackedRestaurant(restaurant);
@@ -121,6 +163,7 @@ export function RestaurantEditor() {
       setName(restaurant.name);
       setDishes(seeded);
       setOriginalSnapshot(seedSnapshot(restaurant, seeded));
+      setCollapsedIds(seeded.length > 1 ? new Set(seeded.map((d) => d.id)) : new Set());
     }
   }
 
@@ -152,16 +195,37 @@ export function RestaurantEditor() {
 
   const dirty = JSON.stringify({ name, dishes }) !== originalSnapshot;
 
-  function updateDish(idx: number, next: MenuDishInput): void {
-    setDishes((current) => current.map((d, i) => (i === idx ? next : d)));
+  function updateDish(id: string, next: DishInput): void {
+    setDishes((current) => current.map((d) => (d.id === id ? next : d)));
   }
 
-  function removeDish(idx: number): void {
-    setDishes((current) => current.filter((_, i) => i !== idx));
+  function removeDish(id: string): void {
+    setDishes((current) => current.filter((d) => d.id !== id));
+    setCollapsedIds((current) => {
+      if (!current.has(id)) return current;
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
   }
 
   function addDish(): void {
     setDishes((current) => [...current, emptyDish()]);
+    // New dishes always start expanded so the user can fill them in.
+  }
+
+  function toggleCollapsed(id: string): void {
+    setCollapsedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const allCollapsed = dishes.length > 0 && dishes.every((d) => collapsedIds.has(d.id));
+  function toggleAll(): void {
+    setCollapsedIds(allCollapsed ? new Set() : new Set(dishes.map((d) => d.id)));
   }
 
   async function handleSave(e: FormEvent<HTMLFormElement>): Promise<void> {
@@ -269,19 +333,43 @@ export function RestaurantEditor() {
         </div>
 
         <section className="space-y-3">
+          {dishes.length > 1 ? (
+            <div className="flex items-center justify-between">
+              <h2 className="h-card">
+                {dishes.length} {dishes.length === 1 ? 'Gericht' : 'Gerichte'}
+              </h2>
+              <button type="button" onClick={toggleAll} className="btn-link text-xs">
+                {allCollapsed ? 'Alle ausklappen' : 'Alle einklappen'}
+              </button>
+            </div>
+          ) : null}
+
           {dishes.length === 0 ? (
             <div className="empty">
               Noch keine Gerichte. Klick „+ Gericht hinzufügen", um eines anzulegen.
             </div>
           ) : (
-            dishes.map((d, idx) => (
-              <DishEditor
-                key={idx}
-                dish={d}
-                onChange={(next) => updateDish(idx, next)}
-                onRemove={() => removeDish(idx)}
-              />
-            ))
+            <SortableList items={dishes} onReorder={setDishes}>
+              <div className="space-y-3">
+                {dishes.map((d) => (
+                  <SortableItem key={d.id} id={d.id}>
+                    {({ dragHandleProps }) => (
+                      <DishEditor
+                        dish={d}
+                        collapsed={collapsedIds.has(d.id)}
+                        onToggleCollapsed={() => toggleCollapsed(d.id)}
+                        onChange={(next) => updateDish(d.id, { ...next, id: d.id })}
+                        onRemove={() => removeDish(d.id)}
+                        templates={templates}
+                        onSaveAsTemplate={handleSaveTemplate}
+                        onDeleteTemplate={handleDeleteTemplate}
+                        dragHandleProps={dragHandleProps}
+                      />
+                    )}
+                  </SortableItem>
+                ))}
+              </div>
+            </SortableList>
           )}
 
           <button type="button" onClick={addDish} className="btn-dashed w-full">
@@ -301,3 +389,4 @@ export function RestaurantEditor() {
     </div>
   );
 }
+

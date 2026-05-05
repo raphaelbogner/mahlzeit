@@ -48,6 +48,7 @@ function sessions_list(array $workspace): void
         'SELECT s.id, s.title, s.restaurant_id, s.restaurant_name, s.deadline,
                 s.creator_id, s.creator_name, s.creator_iban, s.status,
                 s.created_at, s.closed_at,
+                s.paid_by_user_id, s.paid_by_user_name, s.paid_by_iban,
                 (SELECT COUNT(*) FROM items i WHERE i.session_id = s.id) AS items_count,
                 (SELECT COALESCE(SUM(i.price_cents), 0) FROM items i WHERE i.session_id = s.id) AS total_cents
          FROM sessions s
@@ -152,13 +153,40 @@ function sessions_patch(array $workspace, string $id): void
         'user_id', 'title',
         'restaurant_id', 'restaurant_name',
         'deadline', 'creator_iban', 'status',
+        'paid_by_user_id', 'paid_by_user_name', 'paid_by_iban',
     ]);
 
     $session = load_session_or_404($workspace, $id);
 
     $userId = require_string($body, 'user_id', 16, 16);
-    if ($userId !== $session['creator_id']) {
-        error_response(403, 'FORBIDDEN', 'Only the session creator can modify it.');
+    $isCreator = $userId === $session['creator_id'];
+
+    // Auth split: most fields are creator-only. paid_by_iban is also editable
+    // by the user currently marked as the payer (so they can fill in their
+    // IBAN themselves without bothering the creator). paid_by_user_id and
+    // paid_by_user_name remain creator-only.
+    $touchesCreatorOnlyFields = false;
+    $creatorOnlyKeys = [
+        'title', 'restaurant_id', 'restaurant_name', 'deadline',
+        'creator_iban', 'status', 'paid_by_user_id', 'paid_by_user_name',
+    ];
+    foreach ($creatorOnlyKeys as $k) {
+        if (array_key_exists($k, $body)) {
+            $touchesCreatorOnlyFields = true;
+            break;
+        }
+    }
+    $touchesPaidByIban = array_key_exists('paid_by_iban', $body);
+
+    if ($touchesCreatorOnlyFields && !$isCreator) {
+        error_response(403, 'FORBIDDEN', 'Only the session creator can modify these fields.');
+    }
+    if ($touchesPaidByIban && !$isCreator) {
+        // Payer can update their own IBAN. Allowed only if they are the
+        // currently marked payer.
+        if ($session['paid_by_user_id'] === null || $userId !== $session['paid_by_user_id']) {
+            error_response(403, 'FORBIDDEN', 'Only the creator or the marked payer can change paid_by_iban.');
+        }
     }
 
     $updates = [];
@@ -197,6 +225,48 @@ function sessions_patch(array $workspace, string $id): void
             error_response(400, 'INVALID_FIELD', 'Field status must be "open" or "closed".');
         }
         $updates['status'] = $newStatus;
+    }
+
+    // Payment-marking. paid_by_user_id == null clears the override; the
+    // implicit payer is the creator. paid_by_user_name is a snapshot — the
+    // client must send it whenever it sends paid_by_user_id (non-null), so
+    // the server doesn't need to look it up across sessions.
+    if (array_key_exists('paid_by_user_id', $body)) {
+        $val = $body['paid_by_user_id'];
+        if ($val === null || $val === '') {
+            $updates['paid_by_user_id']   = null;
+            $updates['paid_by_user_name'] = '';
+            $updates['paid_by_iban']      = '';
+        } else {
+            if (!is_string($val) || !is_valid_id($val)) {
+                error_response(400, 'INVALID_FIELD', 'Field paid_by_user_id must be a 16-char id or null.');
+            }
+            $updates['paid_by_user_id'] = $val;
+            // paid_by_user_name must accompany a non-null paid_by_user_id.
+            if (!array_key_exists('paid_by_user_name', $body) || $body['paid_by_user_name'] === '') {
+                error_response(400, 'MISSING_FIELD', 'paid_by_user_name is required when paid_by_user_id is set.');
+            }
+        }
+    }
+    if (array_key_exists('paid_by_user_name', $body) && !array_key_exists('paid_by_user_id', $updates)) {
+        // Only allow updating the name when paid_by_user_id is also being set
+        // (handled above). Otherwise it's nonsensical / could confuse.
+        // Fall through silently — name will not be updated unless id is set.
+    }
+    if (array_key_exists('paid_by_user_name', $body) && array_key_exists('paid_by_user_id', $body)
+        && $body['paid_by_user_id'] !== null && $body['paid_by_user_id'] !== '') {
+        $updates['paid_by_user_name'] = require_string($body, 'paid_by_user_name', 120);
+    }
+    if (array_key_exists('paid_by_iban', $body)) {
+        $ibanRaw = optional_string($body, 'paid_by_iban', 34);
+        if ($ibanRaw === '') {
+            $updates['paid_by_iban'] = '';
+        } else {
+            if (!is_valid_iban($ibanRaw)) {
+                error_response(400, 'INVALID_IBAN', 'IBAN failed mod-97 validation.');
+            }
+            $updates['paid_by_iban'] = clean_iban($ibanRaw);
+        }
     }
 
     if (count($updates) === 0) {
@@ -249,7 +319,8 @@ function load_session_or_404(array $workspace, string $id): array
 {
     $stmt = db()->prepare(
         'SELECT id, workspace_id, title, restaurant_id, restaurant_name, deadline,
-                creator_id, creator_name, creator_iban, status, created_at, closed_at
+                creator_id, creator_name, creator_iban, status, created_at, closed_at,
+                paid_by_user_id, paid_by_user_name, paid_by_iban
          FROM sessions
          WHERE id = :id AND workspace_id = :wid
          LIMIT 1'
@@ -266,7 +337,7 @@ function load_items(string $sessionId): array
 {
     $stmt = db()->prepare(
         'SELECT id, session_id, user_id, user_name, dish_id, dish, note,
-                price_cents, options_json, added_at
+                price_cents, options_json, added_at, paid_at
          FROM items
          WHERE session_id = :sid
          ORDER BY added_at ASC, id ASC'
@@ -278,19 +349,22 @@ function load_items(string $sessionId): array
 function format_session_row(array $row): array
 {
     return [
-        'id'              => $row['id'],
-        'title'           => $row['title'],
-        'restaurant_id'   => $row['restaurant_id'],
-        'restaurant_name' => $row['restaurant_name'],
-        'deadline'        => $row['deadline'],
-        'creator_id'      => $row['creator_id'],
-        'creator_name'    => $row['creator_name'],
-        'creator_iban'    => $row['creator_iban'],
-        'status'          => $row['status'],
-        'created_at'      => $row['created_at'],
-        'closed_at'       => $row['closed_at'],
-        'items_count'     => isset($row['items_count']) ? (int)$row['items_count'] : null,
-        'total_cents'     => isset($row['total_cents']) ? (int)$row['total_cents'] : null,
+        'id'                => $row['id'],
+        'title'             => $row['title'],
+        'restaurant_id'     => $row['restaurant_id'],
+        'restaurant_name'   => $row['restaurant_name'],
+        'deadline'          => $row['deadline'],
+        'creator_id'        => $row['creator_id'],
+        'creator_name'      => $row['creator_name'],
+        'creator_iban'      => $row['creator_iban'],
+        'status'            => $row['status'],
+        'created_at'        => $row['created_at'],
+        'closed_at'         => $row['closed_at'],
+        'paid_by_user_id'   => $row['paid_by_user_id'] ?? null,
+        'paid_by_user_name' => $row['paid_by_user_name'] ?? '',
+        'paid_by_iban'      => $row['paid_by_iban'] ?? '',
+        'items_count'       => isset($row['items_count']) ? (int)$row['items_count'] : null,
+        'total_cents'       => isset($row['total_cents']) ? (int)$row['total_cents'] : null,
     ];
 }
 
@@ -314,5 +388,6 @@ function format_item_row(array $row): array
         'price_cents'  => $row['price_cents'] === null ? null : (int)$row['price_cents'],
         'options'      => $options,
         'added_at'     => $row['added_at'],
+        'paid_at'      => $row['paid_at'] ?? null,
     ];
 }

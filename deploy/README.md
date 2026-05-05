@@ -183,8 +183,40 @@ Bei späteren Updates:
 2. `deploy/output/` hochladen — Inhalt von `public_html/` überschreiben,
    **aber** `config.php` (liegt eh außerhalb) und ggf. existierende
    Backups in Ruhe lassen.
-3. Falls `schema.sql` Änderungen enthält: Migration manuell in
-   phpMyAdmin nachziehen. `schema.sql` ist `CREATE TABLE` — nicht blind
-   neu importieren, wenn Daten existieren.
+3. Falls neue Migrationsdateien unter `deploy/output/migrations/`
+   liegen, die du noch nicht ausgeführt hast: in phpMyAdmin importieren
+   (siehe nächster Abschnitt).
 4. `seed.php` nach dem Upload erneut löschen, falls das Skript es wieder
-   mit kopiert hat.
+   mit kopiert hat. `schema.sql` braucht es nach dem Erst-Setup nicht
+   mehr — gerne ebenfalls löschen.
+
+---
+
+## 10. Datenbank-Migrationen
+
+`schema.sql` ist der Fresh-Install-Snapshot — beim Erst-Setup einmal
+importieren, danach nie wieder. Für bestehende Deployments liegen unter
+`server/migrations/` (bzw. `deploy/output/migrations/` nach dem Build)
+nummerierte Migrationsskripte.
+
+Workflow:
+
+1. Im Repo neue Migration sehen (z. B. `003_…sql`)?
+2. Local `deploy/build.sh` neu bauen → die neuen Migrationen landen in
+   `deploy/output/migrations/`.
+3. Per phpMyAdmin auf der Hostinger-DB die noch nicht ausgeführten
+   Migrationen **in der Reihenfolge ihrer Nummern** importieren.
+4. Erst danach (oder zugleich) die neuen PHP/Frontend-Files hochladen.
+
+Die Migrationen sind idempotent (`IF NOT EXISTS`), du kannst sie also
+auch unbesorgt mehrfach ausführen — z. B. wenn unklar ist, ob eine
+Migration schon lief. Trotzdem: am sichersten zwischen Migrationsnummern
+und Code-Versionen Buch führen, etwa per kurzer Notiz im Repo oder in
+hPanel-Notizen.
+
+Aktuell vorhandene Migrationen:
+
+- `001_payment_tracking.sql` — `sessions.paid_by_*` und `items.paid_at`
+  für die „Wer hat bezahlt?"-Funktion.
+- `002_option_group_templates.sql` — neue Tabellen für die
+  Optionsgruppen-Templates im Restaurant-Editor.

@@ -51,18 +51,21 @@ CREATE TABLE IF NOT EXISTS dish_options (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS sessions (
-  id              CHAR(16) PRIMARY KEY,
-  workspace_id    BIGINT UNSIGNED NOT NULL,
-  title           VARCHAR(200) NOT NULL,
-  restaurant_id   CHAR(16) NULL,
-  restaurant_name VARCHAR(200) NOT NULL DEFAULT '',
-  deadline        VARCHAR(50)  NOT NULL DEFAULT '',
-  creator_id      CHAR(16) NOT NULL,
-  creator_name    VARCHAR(120) NOT NULL,
-  creator_iban    VARCHAR(34)  NOT NULL DEFAULT '',
-  status          ENUM('open','closed') NOT NULL DEFAULT 'open',
-  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  closed_at       DATETIME NULL,
+  id                CHAR(16) PRIMARY KEY,
+  workspace_id      BIGINT UNSIGNED NOT NULL,
+  title             VARCHAR(200) NOT NULL,
+  restaurant_id     CHAR(16) NULL,
+  restaurant_name   VARCHAR(200) NOT NULL DEFAULT '',
+  deadline          VARCHAR(50)  NOT NULL DEFAULT '',
+  creator_id        CHAR(16) NOT NULL,
+  creator_name      VARCHAR(120) NOT NULL,
+  creator_iban      VARCHAR(34)  NOT NULL DEFAULT '',
+  status            ENUM('open','closed') NOT NULL DEFAULT 'open',
+  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  closed_at         DATETIME NULL,
+  paid_by_user_id   CHAR(16)     NULL,
+  paid_by_user_name VARCHAR(120) NOT NULL DEFAULT '',
+  paid_by_iban      VARCHAR(34)  NOT NULL DEFAULT '',
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE SET NULL,
   INDEX (workspace_id, created_at)
@@ -79,9 +82,32 @@ CREATE TABLE IF NOT EXISTS items (
   price_cents   INT NULL,
   options_json  TEXT NULL,
   added_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  paid_at       DATETIME NULL,
   FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
   FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE SET NULL,
   INDEX (session_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Workspace-scoped option group templates. A user can save any option group
+-- on any dish as a reusable template and insert it into another dish later.
+CREATE TABLE IF NOT EXISTS option_group_templates (
+  id              CHAR(16) PRIMARY KEY,
+  workspace_id    BIGINT UNSIGNED NOT NULL,
+  name            VARCHAR(120) NOT NULL,
+  selection_type  ENUM('single','multi') NOT NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  INDEX (workspace_id, name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS option_group_template_options (
+  id                CHAR(16) PRIMARY KEY,
+  template_id       CHAR(16) NOT NULL,
+  name              VARCHAR(200) NOT NULL,
+  price_delta_cents INT NOT NULL DEFAULT 0,
+  sort_order        INT NOT NULL DEFAULT 0,
+  FOREIGN KEY (template_id) REFERENCES option_group_templates(id) ON DELETE CASCADE,
+  INDEX (template_id, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS admins (

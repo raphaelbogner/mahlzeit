@@ -14,6 +14,7 @@ function makeItem(partial: Partial<Item> & Pick<Item, 'id' | 'user_name' | 'dish
     price_cents: partial.price_cents ?? null,
     options: partial.options ?? null,
     added_at: partial.added_at ?? '2026-05-05 10:00:00',
+    paid_at: partial.paid_at ?? null,
   };
 }
 

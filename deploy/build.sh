@@ -57,6 +57,19 @@ cp -R "${ROOT}/server/shared" "${OUTPUT}/shared"
 cp "${ROOT}/server/schema.sql" "${OUTPUT}/schema.sql"
 cp "${ROOT}/server/seed.php"   "${OUTPUT}/seed.php"
 
+# Incremental migration scripts for existing deployments. Only the .sql
+# files are shipped — the local _run.php / _verify.php helpers stay out
+# of the deploy bundle (they're CLI-only dev tools, no business on a
+# production server). The operator imports each .sql via phpMyAdmin in
+# order. Idempotent.
+if [ -d "${ROOT}/server/migrations" ]; then
+  mkdir -p "${OUTPUT}/migrations"
+  for f in "${ROOT}/server/migrations"/*.sql; do
+    [ -e "$f" ] || continue
+    cp "$f" "${OUTPUT}/migrations/"
+  done
+fi
+
 step "Writing combined .htaccess"
 cat > "${OUTPUT}/.htaccess" <<'HTACCESS'
 RewriteEngine On

@@ -32,7 +32,7 @@ export function SessionList({ sessions, loading }: SessionListProps) {
   if (sessions.length === 0) {
     return (
       <div className="empty">
-        Noch keine Sammelbestellung. Leg unten eine an und teile die Lust auf Mittagessen.
+        Noch keine Sammelbestellung. Leg eine an und teile die Lust auf Mittagessen.
       </div>
     );
   }

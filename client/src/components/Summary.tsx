@@ -1,13 +1,19 @@
 import { useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { aggregateItems, renderSummaryText } from '../lib/aggregate';
 import type { AggregateOption } from '../lib/aggregate';
 import { fmtPrice } from '../lib/price';
-import { formatIban } from '../lib/iban';
+import { cleanIban, formatIban, isValidIban } from '../lib/iban';
 import type { Session } from '../types/api';
+import type { Profile } from '../hooks/useProfile';
+import { ApiError } from '../api/client';
+import { updateSession } from '../api/sessions';
 import { useToast } from './Toast';
 
 export interface SummaryProps {
   session: Session;
+  profile: Profile;
+  onSessionChanged: (session: Session) => void;
 }
 
 function OptionList({ options }: { options: AggregateOption[] }) {
@@ -25,7 +31,28 @@ function OptionList({ options }: { options: AggregateOption[] }) {
   return <p className="text-xs text-stone-600">{parts.join(' · ')}</p>;
 }
 
-export function Summary({ session }: SummaryProps) {
+interface KnownUser {
+  user_id: string;
+  user_name: string;
+}
+
+// Build the list of distinct users in this session: creator + everyone who
+// has added an item. Dedup by user_id (two people may share the same name).
+function collectUsers(session: Session): KnownUser[] {
+  const map = new Map<string, KnownUser>();
+  map.set(session.creator_id, {
+    user_id: session.creator_id,
+    user_name: session.creator_name,
+  });
+  for (const item of session.items) {
+    if (!map.has(item.user_id)) {
+      map.set(item.user_id, { user_id: item.user_id, user_name: item.user_name });
+    }
+  }
+  return Array.from(map.values());
+}
+
+export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
   const { showError, showInfo } = useToast();
   const [copied, setCopied] = useState<boolean>(false);
 
@@ -43,8 +70,16 @@ export function Summary({ session }: SummaryProps) {
     [session.title, session.restaurant_name, session.creator_name, session.creator_iban, aggregate],
   );
 
-  const showIban =
-    aggregate.has_any_price && session.creator_iban.length > 0;
+  const isCreator = profile.user_id === session.creator_id;
+  const effectivePayerId = session.paid_by_user_id ?? session.creator_id;
+  const effectivePayerName =
+    session.paid_by_user_id === null ? session.creator_name : session.paid_by_user_name;
+  const effectivePayerIban =
+    session.paid_by_user_id === null ? session.creator_iban : session.paid_by_iban;
+  const isMarkedPayer =
+    session.paid_by_user_id !== null && profile.user_id === session.paid_by_user_id;
+
+  const knownUsers = useMemo(() => collectUsers(session), [session]);
 
   async function handleCopy(): Promise<void> {
     try {
@@ -67,6 +102,31 @@ export function Summary({ session }: SummaryProps) {
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       showError('Kopieren fehlgeschlagen.');
+    }
+  }
+
+  async function handlePayerChange(newPayerId: string): Promise<void> {
+    try {
+      let updated;
+      if (newPayerId === session.creator_id) {
+        // "Ersteller (default)" — clear the paid_by override.
+        updated = await updateSession(session.id, {
+          user_id: profile.user_id,
+          paid_by_user_id: null,
+        });
+      } else {
+        const picked = knownUsers.find((u) => u.user_id === newPayerId);
+        if (!picked) return;
+        updated = await updateSession(session.id, {
+          user_id: profile.user_id,
+          paid_by_user_id: picked.user_id,
+          paid_by_user_name: picked.user_name,
+        });
+      }
+      onSessionChanged({ ...updated, items: session.items });
+      showInfo('Bezahler:in aktualisiert.');
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Aktion fehlgeschlagen.');
     }
   }
 
@@ -145,13 +205,126 @@ export function Summary({ session }: SummaryProps) {
         </span>
       </div>
 
-      {showIban && (
+      {isCreator ? (
+        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4">
+          <label htmlFor="payer-select" className="text-sm text-stone-700">
+            Wer hat bezahlt?
+          </label>
+          <select
+            id="payer-select"
+            value={effectivePayerId}
+            onChange={(e) => void handlePayerChange(e.target.value)}
+            className="block rounded-lg bg-white px-2.5 py-1 text-sm text-stone-900 shadow-sm ring-1 ring-stone-300 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            {knownUsers.map((u) => (
+              <option key={u.user_id} value={u.user_id}>
+                {u.user_id === session.creator_id
+                  ? `${u.user_name} (Ersteller:in)`
+                  : u.user_name}
+              </option>
+            ))}
+          </select>
+          <span className="help-xs">
+            Standard: Ersteller:in. Andere Wahl überschreibt die IBAN unten.
+          </span>
+        </div>
+      ) : null}
+
+      {isMarkedPayer && session.paid_by_iban === '' ? (
+        <PayerIbanForm
+          sessionId={session.id}
+          profile={profile}
+          onSaved={(updated) => onSessionChanged({ ...updated, items: session.items })}
+        />
+      ) : null}
+
+      {effectivePayerIban !== '' && aggregate.has_any_price ? (
         <div className="mt-5 alert-info">
           <p className="font-semibold">Bitte überweisen an:</p>
-          <p>{session.creator_name}</p>
-          <p className="font-mono text-xs">IBAN: {formatIban(session.creator_iban)}</p>
+          <p>{effectivePayerName}</p>
+          <p className="font-mono text-xs">IBAN: {formatIban(effectivePayerIban)}</p>
         </div>
-      )}
+      ) : null}
+
+      {session.paid_by_user_id !== null &&
+      session.paid_by_iban === '' &&
+      !isMarkedPayer &&
+      aggregate.has_any_price ? (
+        <div className="mt-5 alert-info">
+          <p className="font-semibold">Bezahlt von {effectivePayerName}.</p>
+          <p className="text-xs">
+            Noch keine IBAN hinterlegt — {effectivePayerName} kann sie selbst eintragen, sobald
+            sie/er hier vorbeischaut.
+          </p>
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+interface PayerIbanFormProps {
+  sessionId: string;
+  profile: Profile;
+  onSaved: (session: Session) => void;
+}
+
+function PayerIbanForm({ sessionId, profile, onSaved }: PayerIbanFormProps) {
+  const [iban, setIban] = useState<string>(profile.iban ? formatIban(profile.iban) : '');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<boolean>(false);
+  const { showError, showInfo } = useToast();
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>): Promise<void> {
+    e.preventDefault();
+    const cleaned = cleanIban(iban);
+    if (cleaned !== '' && !isValidIban(cleaned)) {
+      setError('Diese IBAN ist ungültig.');
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const updated = await updateSession(sessionId, {
+        user_id: profile.user_id,
+        paid_by_iban: cleaned,
+      });
+      onSaved(updated);
+      showInfo('IBAN gespeichert.');
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-5 alert-info" noValidate>
+      <p className="font-semibold">Du wurdest als Bezahler:in markiert.</p>
+      <p className="mt-1 text-xs">
+        Trag deine IBAN ein, damit die anderen wissen, wohin überwiesen werden soll.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={iban}
+          onChange={(e) => setIban(e.target.value)}
+          onBlur={(e) => setIban(formatIban(e.target.value))}
+          placeholder="AT61 1904 3002 3457 3201"
+          maxLength={42}
+          autoComplete="off"
+          spellCheck={false}
+          className="input-mono flex-1 min-w-0"
+          aria-invalid={error ? 'true' : 'false'}
+        />
+        <button type="submit" disabled={busy} className="btn-primary btn-sm">
+          {busy ? 'Speichert…' : 'Speichern'}
+        </button>
+      </div>
+      {error ? (
+        <p className="mt-1 text-xs text-rose-700" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </form>
   );
 }

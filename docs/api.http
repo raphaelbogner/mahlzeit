@@ -338,3 +338,71 @@ Content-Type: application/json
   "username": "{{adminUser}}",
   "password": "definitely-wrong"
 }
+
+### --- option group templates -----------------------------------------
+
+### List templates (workspace-scoped)
+GET {{host}}/api/option-templates
+X-Workspace-Token: {{token}}
+
+### Create a template
+POST {{host}}/api/option-templates
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "name": "Größe",
+  "selection_type": "single",
+  "options": [
+    { "name": "Klein",  "price_delta_cents": 0 },
+    { "name": "Mittel", "price_delta_cents": 150 },
+    { "name": "Groß",   "price_delta_cents": 300 }
+  ]
+}
+
+### Delete a template
+DELETE {{host}}/api/option-templates/REPLACE_TEMPLATE_ID
+X-Workspace-Token: {{token}}
+
+### --- payment marking ------------------------------------------------
+
+### Mark another user as the payer (creator only). Sends snapshot of name.
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "paid_by_user_id": "REPLACE_PAYER_USER_ID",
+  "paid_by_user_name": "Anna Müller"
+}
+
+### Marked payer fills in their own IBAN later
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "REPLACE_PAYER_USER_ID",
+  "paid_by_iban": "AT611904300234573201"
+}
+
+### Clear the payer override (back to "creator paid" default)
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "paid_by_user_id": null
+}
+
+### Effective payer marks an item as paid (works on closed sessions too)
+PATCH {{host}}/api/sessions/{{sessionId}}/items/{{itemId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "paid": true
+}

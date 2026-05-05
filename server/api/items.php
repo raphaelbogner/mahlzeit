@@ -244,22 +244,43 @@ function items_create_structured(
 
 function items_patch(array $session, string $itemId): void
 {
-    if ($session['status'] !== 'open') {
-        error_response(409, 'SESSION_CLOSED', 'Session is closed.');
-    }
-
     $body = read_json_body();
-    reject_unknown_fields($body, ['user_id', 'dish', 'note', 'price_cents']);
+    reject_unknown_fields($body, ['user_id', 'dish', 'note', 'price_cents', 'paid']);
 
     $existing = load_item_or_404($session['id'], $itemId);
 
     $userId = require_string($body, 'user_id', 16, 16);
-    if ($userId !== $existing['user_id']) {
-        error_response(403, 'FORBIDDEN', 'Only the item author can modify it.');
+
+    // Two distinct edit modes share this endpoint:
+    //   1) content edit (dish/note/price)  → item author, only when session open, freitext only
+    //   2) paid toggle                      → effective payer (paid_by_user_id ?? creator_id)
+    // Both can occur in one request; each is checked independently.
+    $contentKeys = ['dish', 'note', 'price_cents'];
+    $touchesContent = false;
+    foreach ($contentKeys as $k) {
+        if (array_key_exists($k, $body)) {
+            $touchesContent = true;
+            break;
+        }
     }
-    if ($existing['dish_id'] !== null) {
-        // Structured items (Phase 3.5) cannot be patched via the freitext path.
-        error_response(409, 'STRUCTURED_ITEM', 'This item was created with a dish; freitext patch not allowed.');
+    $touchesPaid = array_key_exists('paid', $body);
+
+    if ($touchesContent) {
+        if ($session['status'] !== 'open') {
+            error_response(409, 'SESSION_CLOSED', 'Session is closed.');
+        }
+        if ($userId !== $existing['user_id']) {
+            error_response(403, 'FORBIDDEN', 'Only the item author can modify it.');
+        }
+        if ($existing['dish_id'] !== null) {
+            error_response(409, 'STRUCTURED_ITEM', 'This item was created with a dish; freitext patch not allowed.');
+        }
+    }
+    if ($touchesPaid) {
+        $effectivePayer = $session['paid_by_user_id'] ?? $session['creator_id'];
+        if ($userId !== $effectivePayer) {
+            error_response(403, 'FORBIDDEN', 'Only the effective payer can mark items as paid.');
+        }
     }
 
     $updates = [];
@@ -275,12 +296,21 @@ function items_patch(array $session, string $itemId): void
         $updates['price_cents'] = parse_optional_price_cents($body, 'price_cents');
     }
 
-    if (count($updates) > 0) {
-        $setParts = [];
-        foreach ($updates as $col => $val) {
-            $setParts[]      = "{$col} = :{$col}";
-            $params[":{$col}"] = $val;
+    $setParts = [];
+    foreach ($updates as $col => $val) {
+        $setParts[]      = "{$col} = :{$col}";
+        $params[":{$col}"] = $val;
+    }
+    if ($touchesPaid) {
+        $paid = $body['paid'];
+        if (!is_bool($paid)) {
+            error_response(400, 'INVALID_FIELD', 'Field paid must be a boolean.');
         }
+        // Use SQL CURRENT_TIMESTAMP for set, or NULL for unset. Not a placeholder.
+        $setParts[] = $paid ? 'paid_at = CURRENT_TIMESTAMP' : 'paid_at = NULL';
+    }
+
+    if (count($setParts) > 0) {
         $sql = 'UPDATE items SET ' . implode(', ', $setParts)
              . ' WHERE id = :id AND session_id = :sid';
         $stmt = db()->prepare($sql);
@@ -318,7 +348,7 @@ function load_item_or_404(string $sessionId, string $itemId): array
 {
     $stmt = db()->prepare(
         'SELECT id, session_id, user_id, user_name, dish_id, dish, note,
-                price_cents, options_json, added_at
+                price_cents, options_json, added_at, paid_at
          FROM items
          WHERE id = :id AND session_id = :sid
          LIMIT 1'

@@ -1,15 +1,34 @@
 import { useState } from 'react';
+import { generateId } from '../lib/ids';
 import { fmtPrice, parsePrice } from '../lib/price';
-import type { MenuOptionGroupInput, MenuOptionInput, SelectionType } from '../types/api';
+import type {
+  CreateOptionTemplateInput,
+  MenuOptionGroupInput,
+  MenuOptionInput,
+  SelectionType,
+} from '../types/api';
+import { DragHandle, SortableItem, SortableList } from './Sortable';
+
+// Local invariant: every option carries an id (server-assigned for loaded
+// options, client-generated for newly added ones) so it's stable for keys
+// and drag-and-drop.
+type OptionWithId = MenuOptionInput & { id: string };
 
 export interface OptionGroupEditorProps {
   group: MenuOptionGroupInput;
   onChange: (next: MenuOptionGroupInput) => void;
   onRemove: () => void;
+  onSaveAsTemplate?: (input: CreateOptionTemplateInput) => Promise<void>;
+  // Provided by the parent SortableList wrapper. Spread on the drag handle.
+  dragHandleProps?: Record<string, unknown>;
 }
 
-function emptyOption(): MenuOptionInput {
-  return { name: '', price_delta_cents: 0 };
+function emptyOption(): OptionWithId {
+  return { id: generateId(), name: '', price_delta_cents: 0 };
+}
+
+function asOptions(options: MenuOptionInput[]): OptionWithId[] {
+  return options.map((o) => (o.id ? (o as OptionWithId) : { ...o, id: generateId() }));
 }
 
 function formatDeltaForInput(cents: number): string {
@@ -81,7 +100,15 @@ function OptionDeltaInput({ value, onCommit, ariaLabel }: OptionDeltaInputProps)
   );
 }
 
-export function OptionGroupEditor({ group, onChange, onRemove }: OptionGroupEditorProps) {
+export function OptionGroupEditor({
+  group,
+  onChange,
+  onRemove,
+  onSaveAsTemplate,
+  dragHandleProps,
+}: OptionGroupEditorProps) {
+  const [savingTpl, setSavingTpl] = useState<boolean>(false);
+
   function setName(name: string): void {
     onChange({ ...group, name });
   }
@@ -90,23 +117,56 @@ export function OptionGroupEditor({ group, onChange, onRemove }: OptionGroupEdit
     onChange({ ...group, selection_type });
   }
 
-  function updateOption(idx: number, patch: Partial<MenuOptionInput>): void {
-    const options = group.options.map((o, i) => (i === idx ? { ...o, ...patch } : o));
-    onChange({ ...group, options });
+  const options = asOptions(group.options);
+
+  function updateOption(id: string, patch: Partial<MenuOptionInput>): void {
+    const next = options.map((o) => (o.id === id ? { ...o, ...patch } : o));
+    onChange({ ...group, options: next });
   }
 
-  function removeOption(idx: number): void {
-    const options = group.options.filter((_, i) => i !== idx);
-    onChange({ ...group, options });
+  function removeOption(id: string): void {
+    onChange({ ...group, options: options.filter((o) => o.id !== id) });
   }
 
   function addOption(): void {
-    onChange({ ...group, options: [...group.options, emptyOption()] });
+    onChange({ ...group, options: [...options, emptyOption()] });
+  }
+
+  function reorderOptions(nextOptions: OptionWithId[]): void {
+    onChange({ ...group, options: nextOptions });
+  }
+
+  // Ready to save as template = name set and at least one option with a name.
+  const canSaveAsTemplate =
+    onSaveAsTemplate !== undefined &&
+    group.name.trim() !== '' &&
+    options.some((o) => o.name.trim() !== '');
+
+  async function handleSaveAsTemplate(): Promise<void> {
+    if (!onSaveAsTemplate) return;
+    setSavingTpl(true);
+    try {
+      await onSaveAsTemplate({
+        name: group.name.trim(),
+        selection_type: group.selection_type,
+        options: options
+          .filter((o) => o.name.trim() !== '')
+          .map((o) => ({
+            name: o.name.trim(),
+            price_delta_cents: o.price_delta_cents,
+          })),
+      });
+    } finally {
+      setSavingTpl(false);
+    }
   }
 
   return (
     <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
       <div className="mb-3 flex flex-wrap items-center gap-2">
+        {dragHandleProps ? (
+          <DragHandle handleProps={dragHandleProps} label="Optionsgruppe verschieben" />
+        ) : null}
         <label className="flex items-center gap-2 text-sm">
           <span className="text-stone-700">Gruppe:</span>
           <input
@@ -131,50 +191,76 @@ export function OptionGroupEditor({ group, onChange, onRemove }: OptionGroupEdit
             <option value="multi">mehrere (multi)</option>
           </select>
         </label>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="btn-danger-soft btn-sm ml-auto"
-          aria-label="Gruppe entfernen"
-        >
-          Gruppe entfernen
-        </button>
-      </div>
-
-      <ul className="space-y-1.5">
-        {group.options.map((opt, idx) => (
-          <li key={idx} className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-stone-400" aria-hidden="true">
-              {group.selection_type === 'single' ? '○' : '☐'}
-            </span>
-            <input
-              type="text"
-              value={opt.name}
-              onChange={(e) => updateOption(idx, { name: e.target.value })}
-              maxLength={200}
-              placeholder="Name"
-              className="min-w-0 flex-1 rounded-lg bg-white px-2.5 py-1.5 text-sm text-stone-900 shadow-sm ring-1 ring-stone-300 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
-              aria-label={`Option ${idx + 1} Name`}
-            />
-            <OptionDeltaInput
-              value={opt.price_delta_cents}
-              onCommit={(next) => updateOption(idx, { price_delta_cents: next })}
-              ariaLabel={`Option ${idx + 1} Preisaufschlag`}
-            />
-            <span className="hidden w-20 shrink-0 text-right text-xs text-stone-500 tabular-nums sm:inline-block">
-              {opt.price_delta_cents === 0 ? '±0' : fmtPrice(opt.price_delta_cents)}
-            </span>
+        <div className="ml-auto flex items-center gap-2">
+          {onSaveAsTemplate ? (
             <button
               type="button"
-              onClick={() => removeOption(idx)}
-              className="btn-danger-soft btn-sm"
-              aria-label={`Option ${idx + 1} entfernen`}
+              onClick={() => void handleSaveAsTemplate()}
+              disabled={!canSaveAsTemplate || savingTpl}
+              className="btn-secondary btn-sm"
+              title={
+                canSaveAsTemplate
+                  ? 'Gruppe als Template speichern'
+                  : 'Name und mindestens eine Option mit Namen nötig'
+              }
             >
-              ✕
+              {savingTpl ? '…' : '☆ Als Template'}
             </button>
-          </li>
-        ))}
-      </ul>
+          ) : null}
+          <button
+            type="button"
+            onClick={onRemove}
+            className="btn-danger-soft btn-sm"
+            aria-label="Gruppe entfernen"
+          >
+            Gruppe entfernen
+          </button>
+        </div>
+      </div>
+
+      {options.length > 0 ? (
+        <SortableList items={options} onReorder={reorderOptions}>
+          <ul className="space-y-1.5">
+            {options.map((opt, idx) => (
+              <SortableItem key={opt.id} id={opt.id}>
+                {({ dragHandleProps: oHandle }) => (
+                  <li className="flex flex-wrap items-center gap-2 text-sm">
+                    <DragHandle handleProps={oHandle} label="Option verschieben" />
+                    <span className="text-stone-400" aria-hidden="true">
+                      {group.selection_type === 'single' ? '○' : '☐'}
+                    </span>
+                    <input
+                      type="text"
+                      value={opt.name}
+                      onChange={(e) => updateOption(opt.id, { name: e.target.value })}
+                      maxLength={200}
+                      placeholder="Name"
+                      className="min-w-0 flex-1 rounded-lg bg-white px-2.5 py-1.5 text-sm text-stone-900 shadow-sm ring-1 ring-stone-300 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      aria-label={`Option ${idx + 1} Name`}
+                    />
+                    <OptionDeltaInput
+                      value={opt.price_delta_cents}
+                      onCommit={(next) => updateOption(opt.id, { price_delta_cents: next })}
+                      ariaLabel={`Option ${idx + 1} Preisaufschlag`}
+                    />
+                    <span className="hidden w-20 shrink-0 text-right text-xs text-stone-500 tabular-nums sm:inline-block">
+                      {opt.price_delta_cents === 0 ? '±0' : fmtPrice(opt.price_delta_cents)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeOption(opt.id)}
+                      className="btn-danger-soft btn-sm"
+                      aria-label={`Option ${idx + 1} entfernen`}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                )}
+              </SortableItem>
+            ))}
+          </ul>
+        </SortableList>
+      ) : null}
 
       <button type="button" onClick={addOption} className="btn-dashed btn-sm mt-3">
         + Option hinzufügen

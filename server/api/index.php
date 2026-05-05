@@ -9,6 +9,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/sessions.php';
 require_once __DIR__ . '/items.php';
 require_once __DIR__ . '/restaurants.php';
+require_once __DIR__ . '/templates.php';
 
 set_error_handler(function (int $errno, string $msg, string $file, int $line): bool {
     if (!(error_reporting() & $errno)) {
@@ -72,6 +73,10 @@ switch ($resource) {
 
     case 'restaurants':
         handle_restaurants_route($method, $segments, $workspace);
+        break;
+
+    case 'option-templates':
+        handle_option_templates_route($method, $segments, $workspace);
         break;
 
     default:

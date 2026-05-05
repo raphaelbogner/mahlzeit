@@ -36,6 +36,9 @@ export interface ItemRowProps {
   sessionId: string;
   profile: Profile;
   sessionOpen: boolean;
+  // user_id of the effective payer (paid_by_user_id ?? creator_id). When the
+  // current user matches and the session is closed, the paid-toggle appears.
+  effectivePayerId: string;
   onChanged: (item: Item) => void;
   onDeleted: (itemId: string) => void;
 }
@@ -45,6 +48,7 @@ export function ItemRow({
   sessionId,
   profile,
   sessionOpen,
+  effectivePayerId,
   onChanged,
   onDeleted,
 }: ItemRowProps) {
@@ -62,6 +66,8 @@ export function ItemRow({
   const isOwner = item.user_id === profile.user_id;
   const isStructured = item.dish_id !== null;
   const canEdit = isOwner && sessionOpen && !isStructured;
+  const isPaid = item.paid_at !== null;
+  const canTogglePaid = !sessionOpen && profile.user_id === effectivePayerId;
 
   function startEdit(): void {
     setDish(item.dish);
@@ -129,6 +135,21 @@ export function ItemRow({
     }
   }
 
+  async function handleTogglePaid(): Promise<void> {
+    setBusy(true);
+    try {
+      const updated = await updateItem(sessionId, item.id, {
+        user_id: profile.user_id,
+        paid: !isPaid,
+      });
+      onChanged(updated);
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Aktion fehlgeschlagen.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (editing) {
     return (
       <li className="rounded-2xl bg-orange-50 p-4 ring-1 ring-orange-200">
@@ -189,22 +210,54 @@ export function ItemRow({
     );
   }
 
+  // When paid, dim the row and strike the dish/price text to make it
+  // visually obvious which positions still need to be settled.
+  const paidStyling = isPaid ? 'opacity-60' : '';
+  const strike = isPaid ? 'line-through decoration-stone-400' : '';
+
   return (
-    <li className="rounded-2xl bg-white p-4 shadow-card ring-1 ring-stone-200/70 transition hover:ring-stone-300">
+    <li
+      className={
+        'rounded-2xl bg-white p-4 shadow-card ring-1 ring-stone-200/70 transition hover:ring-stone-300 ' +
+        paidStyling
+      }
+    >
       <div className="flex items-start justify-between gap-3">
+        {canTogglePaid ? (
+          <label
+            className="mt-0.5 flex shrink-0 cursor-pointer items-center"
+            title={isPaid ? 'Als unbezahlt markieren' : 'Als bezahlt markieren'}
+          >
+            <input
+              type="checkbox"
+              checked={isPaid}
+              onChange={() => void handleTogglePaid()}
+              disabled={busy}
+              className="h-4 w-4 cursor-pointer rounded border-stone-300 accent-orange-500"
+              aria-label={isPaid ? 'Als unbezahlt markieren' : 'Als bezahlt markieren'}
+            />
+          </label>
+        ) : null}
+
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
-            <span className="font-semibold text-stone-900">{item.dish}</span>
+            <span className={'font-semibold text-stone-900 ' + strike}>{item.dish}</span>
             {item.price_cents !== null && (
-              <span className="tabular-nums text-stone-700">{fmtPrice(item.price_cents)}</span>
+              <span className={'tabular-nums text-stone-700 ' + strike}>
+                {fmtPrice(item.price_cents)}
+              </span>
             )}
+            {isPaid ? <span className="badge-success">bezahlt</span> : null}
           </p>
           {item.options && item.options.length > 0 && (
-            <p className="mt-0.5 text-sm text-stone-600">{renderOptions(item.options)}</p>
+            <p className={'mt-0.5 text-sm text-stone-600 ' + strike}>
+              {renderOptions(item.options)}
+            </p>
           )}
-          {item.note && <p className="mt-0.5 text-sm text-stone-600">{item.note}</p>}
+          {item.note && <p className={'mt-0.5 text-sm text-stone-600 ' + strike}>{item.note}</p>}
           <p className="mt-1 help-xs">{item.user_name}</p>
         </div>
+
         {canEdit && !confirmingDelete && (
           <div className="flex shrink-0 gap-1">
             <button

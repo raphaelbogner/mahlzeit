@@ -9,6 +9,7 @@ import type { Profile } from '../hooks/useProfile';
 import { ApiError } from '../api/client';
 import { updateSession } from '../api/sessions';
 import { useToast } from './Toast';
+import { PaymentQr } from './PaymentQr';
 
 export interface SummaryProps {
   session: Session;
@@ -29,6 +30,13 @@ function OptionList({ options }: { options: AggregateOption[] }) {
     parts.push(`${group}: ${names.join(', ')}`);
   }
   return <p className="text-xs text-stone-600">{parts.join(' · ')}</p>;
+}
+
+function buildRemittance(restaurantName: string, payerName: string): string {
+  const r = restaurantName.trim();
+  const p = payerName.trim();
+  if (r && p) return `${r}, ${p}`;
+  return r || p;
 }
 
 interface KnownUser {
@@ -80,6 +88,20 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
     session.paid_by_user_id !== null && profile.user_id === session.paid_by_user_id;
 
   const knownUsers = useMemo(() => collectUsers(session), [session]);
+
+  // Current viewer's own outstanding amount (only items they added that have
+  // a price). Used to populate the SEPA QR with the exact transfer sum.
+  const myAmountCents = useMemo(() => {
+    let sum = 0;
+    for (const item of session.items) {
+      if (item.user_id === profile.user_id && item.price_cents !== null && item.paid_at === null) {
+        sum += item.price_cents;
+      }
+    }
+    return sum;
+  }, [session.items, profile.user_id]);
+
+  const isViewerPayer = profile.user_id === effectivePayerId;
 
   async function handleCopy(): Promise<void> {
     try {
@@ -159,6 +181,16 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
                   <span className="font-medium text-stone-900">{line.dish}</span>
                 </p>
                 <OptionList options={line.options} />
+                {line.notes.length > 0 && (
+                  <ul className="mt-0.5 space-y-0.5">
+                    {line.notes.map((n, i) => (
+                      <li key={i} className="text-xs text-stone-700">
+                        <span className="text-stone-500">Anmerkung ({n.user_name}):</span>{' '}
+                        {n.note}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <p className="help-xs">{line.users.join(', ')}</p>
               </div>
               <div className="shrink-0 text-right text-sm tabular-nums">
@@ -240,9 +272,34 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
 
       {effectivePayerIban !== '' && aggregate.has_any_price ? (
         <div className="mt-5 alert-info">
-          <p className="font-semibold">Bitte überweisen an:</p>
-          <p>{effectivePayerName}</p>
-          <p className="font-mono text-xs">IBAN: {formatIban(effectivePayerIban)}</p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-semibold">Bitte überweisen an:</p>
+              <p>{effectivePayerName}</p>
+              <p className="font-mono text-xs">IBAN: {formatIban(effectivePayerIban)}</p>
+              {!isViewerPayer && myAmountCents > 0 && (
+                <p className="mt-2 text-sm">
+                  Dein Anteil:{' '}
+                  <span className="font-semibold tabular-nums">{fmtPrice(myAmountCents)}</span>
+                </p>
+              )}
+              {!isViewerPayer && myAmountCents > 0 && (
+                <p className="help-xs mt-1">
+                  Scanne den QR-Code mit deiner Banking-App, um die Überweisung vorauszufüllen.
+                </p>
+              )}
+            </div>
+            {!isViewerPayer && myAmountCents > 0 && (
+              <div className="shrink-0">
+                <PaymentQr
+                  beneficiaryName={effectivePayerName}
+                  iban={effectivePayerIban}
+                  amountCents={myAmountCents}
+                  remittance={buildRemittance(session.restaurant_name, profile.user_name)}
+                />
+              </div>
+            )}
+          </div>
         </div>
       ) : null}
 

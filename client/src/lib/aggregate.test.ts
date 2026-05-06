@@ -116,6 +116,38 @@ describe('aggregateItems', () => {
     expect(agg.grand_total_cents).toBe(350);
   });
 
+  it('collects notes per line with attribution and merges identical dishes', () => {
+    const items: Item[] = [
+      makeItem({
+        id: 'i1aaaaaaaaaaaaaa',
+        user_name: 'Anna',
+        dish: 'Pizza',
+        price_cents: 950,
+        note: 'ohne Zwiebel',
+      }),
+      makeItem({
+        id: 'i2aaaaaaaaaaaaaa',
+        user_name: 'Ben',
+        dish: 'Pizza',
+        price_cents: 950,
+      }),
+      makeItem({
+        id: 'i3aaaaaaaaaaaaaa',
+        user_name: 'Clara',
+        dish: 'Pizza',
+        price_cents: 950,
+        note: 'extra scharf',
+      }),
+    ];
+    const agg = aggregateItems(items);
+    expect(agg.lines).toHaveLength(1);
+    expect(agg.lines[0]!.count).toBe(3);
+    expect(agg.lines[0]!.notes).toEqual([
+      { user_name: 'Anna', note: 'ohne Zwiebel' },
+      { user_name: 'Clara', note: 'extra scharf' },
+    ]);
+  });
+
   it('flags persons with unpriced items', () => {
     const items: Item[] = [
       makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'A', price_cents: 200 }),
@@ -159,6 +191,26 @@ describe('renderSummaryText', () => {
     expect(text).toContain('Bitte überweisen an:');
     expect(text).toContain('Clara');
     expect(text).toContain('AT61 1904 3002 3457 3201');
+  });
+
+  it('includes notes with attribution in the rendered text', () => {
+    const items: Item[] = [
+      makeItem({
+        id: 'i1aaaaaaaaaaaaaa',
+        user_name: 'Anna',
+        dish: 'Pizza',
+        price_cents: 950,
+        note: 'ohne Zwiebel',
+      }),
+    ];
+    const text = renderSummaryText({
+      session_title: 'X',
+      restaurant_name: '',
+      creator_name: 'Clara',
+      creator_iban: '',
+      aggregate: aggregateItems(items),
+    });
+    expect(text).toContain('Anmerkung (Anna): ohne Zwiebel');
   });
 
   it('omits IBAN block when no item is priced', () => {

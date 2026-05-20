@@ -65,7 +65,11 @@ export function ItemRow({
 
   const isOwner = item.user_id === profile.user_id;
   const isStructured = item.dish_id !== null;
-  const canEdit = isOwner && sessionOpen && !isStructured;
+  // Structured items have an immutable dish/price snapshot, so only freitext
+  // items expose the full editor. Both kinds allow note edit and delete.
+  const canEditFull = isOwner && sessionOpen && !isStructured;
+  const canEditNote = isOwner && sessionOpen && isStructured;
+  const canDelete = isOwner && sessionOpen;
   const isPaid = item.paid_at !== null;
   const canTogglePaid = !sessionOpen && profile.user_id === effectivePayerId;
 
@@ -86,8 +90,28 @@ export function ItemRow({
 
   async function handleSave(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
-    const trimmedDish = dish.trim();
     const trimmedNote = note.trim();
+
+    if (isStructured) {
+      // Structured items: only the note is editable; dish/price are snapshots.
+      setErrors({});
+      setBusy(true);
+      try {
+        const updated = await updateItem(sessionId, item.id, {
+          user_id: profile.user_id,
+          note: trimmedNote,
+        });
+        onChanged(updated);
+        setEditing(false);
+      } catch (err) {
+        showError(err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    const trimmedDish = dish.trim();
     const next: { dish?: string; price?: string } = {};
 
     if (trimmedDish.length === 0) next.dish = 'Bitte ein Gericht eingeben.';
@@ -154,19 +178,25 @@ export function ItemRow({
     return (
       <li className="rounded-2xl bg-orange-50 p-4 ring-1 ring-orange-200">
         <form onSubmit={handleSave} className="space-y-2" noValidate>
-          <input
-            type="text"
-            value={dish}
-            onChange={(e) => setDish(e.target.value)}
-            maxLength={200}
-            className="input"
-            aria-invalid={errors.dish ? 'true' : 'false'}
-            aria-label="Gericht"
-          />
-          {errors.dish && (
-            <p className="text-xs text-rose-600" role="alert">
-              {errors.dish}
-            </p>
+          {isStructured ? (
+            <p className="text-sm font-semibold text-stone-900">{item.dish}</p>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={dish}
+                onChange={(e) => setDish(e.target.value)}
+                maxLength={200}
+                className="input"
+                aria-invalid={errors.dish ? 'true' : 'false'}
+                aria-label="Gericht"
+              />
+              {errors.dish && (
+                <p className="text-xs text-rose-600" role="alert">
+                  {errors.dish}
+                </p>
+              )}
+            </>
           )}
           <input
             type="text"
@@ -177,20 +207,24 @@ export function ItemRow({
             className="input"
             aria-label="Anmerkung"
           />
-          <input
-            type="text"
-            inputMode="decimal"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="Preis"
-            className="input"
-            aria-invalid={errors.price ? 'true' : 'false'}
-            aria-label="Preis"
-          />
-          {errors.price && (
-            <p className="text-xs text-rose-600" role="alert">
-              {errors.price}
-            </p>
+          {!isStructured && (
+            <>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="Preis"
+                className="input"
+                aria-invalid={errors.price ? 'true' : 'false'}
+                aria-label="Preis"
+              />
+              {errors.price && (
+                <p className="text-xs text-rose-600" role="alert">
+                  {errors.price}
+                </p>
+              )}
+            </>
           )}
           <div className="flex gap-2">
             <button type="submit" disabled={busy} className="btn-primary flex-1 btn-sm">
@@ -258,17 +292,19 @@ export function ItemRow({
           <p className="mt-1 help-xs">{item.user_name}</p>
         </div>
 
-        {canEdit && !confirmingDelete && (
+        {canDelete && !confirmingDelete && (
           <div className="flex shrink-0 gap-1">
-            <button
-              type="button"
-              onClick={startEdit}
-              disabled={busy}
-              className="btn-ghost btn-sm"
-              aria-label="Bearbeiten"
-            >
-              Bearbeiten
-            </button>
+            {(canEditFull || canEditNote) && (
+              <button
+                type="button"
+                onClick={startEdit}
+                disabled={busy}
+                className="btn-ghost btn-sm"
+                aria-label={canEditNote ? 'Anmerkung bearbeiten' : 'Bearbeiten'}
+              >
+                Bearbeiten
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
@@ -280,7 +316,7 @@ export function ItemRow({
             </button>
           </div>
         )}
-        {canEdit && confirmingDelete && (
+        {canDelete && confirmingDelete && (
           <div className="flex shrink-0 items-center gap-1">
             <span className="text-xs text-stone-700">Sicher?</span>
             <button

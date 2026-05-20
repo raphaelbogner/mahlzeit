@@ -8,8 +8,8 @@ require_once __DIR__ . '/sessions.php'; // for load_session_or_404, format_item_
 
 // Dispatcher for /api/sessions/{sid}/items[/{itemId}]. POST accepts both
 // freitext (dish + optional price) and structured (dish_id + option_ids)
-// payloads. PATCH only supports freitext items — structured items are
-// immutable on the server and must be deleted + re-added to change.
+// payloads. PATCH on structured items is limited to the note — the
+// dish/price snapshot is immutable; to change it, delete + re-add.
 function handle_items_route(string $method, array $segments, array $workspace, string $sessionId): void
 {
     $session = load_session_or_404($workspace, $sessionId);
@@ -273,7 +273,10 @@ function items_patch(array $session, string $itemId): void
             error_response(403, 'FORBIDDEN', 'Only the item author can modify it.');
         }
         if ($existing['dish_id'] !== null) {
-            error_response(409, 'STRUCTURED_ITEM', 'This item was created with a dish; freitext patch not allowed.');
+            // Structured items: snapshot of dish/price is immutable; only note may change.
+            if (array_key_exists('dish', $body) || array_key_exists('price_cents', $body)) {
+                error_response(409, 'STRUCTURED_ITEM', 'Only note may be edited on structured items.');
+            }
         }
     }
     if ($touchesPaid) {

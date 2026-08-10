@@ -148,7 +148,7 @@ function items_create_structured(
 
     // Load all groups + options for this dish in one go.
     $groupsStmt = $pdo->prepare(
-        'SELECT id, name, selection_type
+        'SELECT id, name, selection_type, max_select
          FROM dish_option_groups
          WHERE dish_id = :did
          ORDER BY sort_order ASC, id ASC'
@@ -200,6 +200,12 @@ function items_create_structured(
                     "Group '{$g['name']}' requires exactly one option."
                 );
             }
+        } elseif ($g['max_select'] !== null && count($picked) > (int)$g['max_select']) {
+            error_response(
+                400,
+                'INVALID_SELECTION',
+                "Group '{$g['name']}' allows at most {$g['max_select']} options."
+            );
         }
         // For both single and multi: append to snapshot in group order.
         foreach ($picked as $opt) {

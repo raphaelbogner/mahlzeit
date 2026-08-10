@@ -166,7 +166,10 @@ Content-Type: application/json
   "dishes": [
     {
       "name": "Margherita",
+      "category": "Pizza",
+      "description": "Tomaten, Käse, Oregano, Sauce",
       "base_price_cents": 950,
+      "is_vegetarian": true,
       "option_groups": [
         {
           "name": "Größe",

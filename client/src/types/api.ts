@@ -61,6 +61,8 @@ export interface DishOptionGroup {
   dish_id: string;
   name: string;
   selection_type: SelectionType;
+  // For 'multi': max number of options selectable (null = unlimited).
+  max_select: number | null;
   sort_order: number;
   options: DishOption[];
 }
@@ -69,7 +71,10 @@ export interface Dish {
   id: string;
   restaurant_id: string;
   name: string;
+  category: string;
+  description: string;
   base_price_cents: number;
+  is_vegetarian: boolean;
   sort_order: number;
   option_groups: DishOptionGroup[];
 }
@@ -156,13 +161,17 @@ export interface MenuOptionGroupInput {
   id?: string;
   name: string;
   selection_type: SelectionType;
+  max_select?: number | null;
   options: MenuOptionInput[];
 }
 
 export interface MenuDishInput {
   id?: string;
   name: string;
+  category?: string;
+  description?: string;
   base_price_cents: number;
+  is_vegetarian?: boolean;
   option_groups: MenuOptionGroupInput[];
 }
 

@@ -157,7 +157,7 @@ function load_full_menu(string $restaurantId): array
     $pdo = db();
 
     $dishesStmt = $pdo->prepare(
-        'SELECT id, restaurant_id, name, base_price_cents, sort_order
+        'SELECT id, restaurant_id, name, category, description, base_price_cents, is_vegetarian, sort_order
          FROM dishes
          WHERE restaurant_id = :rid
          ORDER BY sort_order ASC, id ASC'
@@ -172,7 +172,7 @@ function load_full_menu(string $restaurantId): array
     $placeholders = implode(',', array_fill(0, count($dishIds), '?'));
 
     $groupsStmt = $pdo->prepare(
-        "SELECT id, dish_id, name, selection_type, sort_order
+        "SELECT id, dish_id, name, selection_type, max_select, sort_order
          FROM dish_option_groups
          WHERE dish_id IN ({$placeholders})
          ORDER BY sort_order ASC, id ASC"
@@ -218,6 +218,7 @@ function load_full_menu(string $restaurantId): array
                 'dish_id'        => $g['dish_id'],
                 'name'           => $g['name'],
                 'selection_type' => $g['selection_type'],
+                'max_select'     => $g['max_select'] === null ? null : (int)$g['max_select'],
                 'sort_order'     => (int)$g['sort_order'],
                 'options'        => $optionsByGroup[$g['id']] ?? [],
             ];
@@ -226,7 +227,10 @@ function load_full_menu(string $restaurantId): array
             'id'               => $d['id'],
             'restaurant_id'    => $d['restaurant_id'],
             'name'             => $d['name'],
+            'category'         => $d['category'],
+            'description'      => $d['description'],
             'base_price_cents' => (int)$d['base_price_cents'],
+            'is_vegetarian'    => (bool)(int)$d['is_vegetarian'],
             'sort_order'       => (int)$d['sort_order'],
             'option_groups'    => $dishGroupsOut,
         ];

@@ -33,11 +33,15 @@ function dishToInput(dish: Dish): DishInput {
   return {
     id: dish.id,
     name: dish.name,
+    category: dish.category,
+    description: dish.description,
     base_price_cents: dish.base_price_cents,
+    is_vegetarian: dish.is_vegetarian,
     option_groups: dish.option_groups.map<MenuOptionGroupInput>((g) => ({
       id: g.id,
       name: g.name,
       selection_type: g.selection_type,
+      max_select: g.max_select,
       options: g.options.map<MenuOptionInput>((o) => ({
         id: o.id,
         name: o.name,
@@ -48,7 +52,15 @@ function dishToInput(dish: Dish): DishInput {
 }
 
 function emptyDish(): DishInput {
-  return { id: generateId(), name: '', base_price_cents: 0, option_groups: [] };
+  return {
+    id: generateId(),
+    name: '',
+    category: '',
+    description: '',
+    base_price_cents: 0,
+    is_vegetarian: false,
+    option_groups: [],
+  };
 }
 
 interface ValidationError {
@@ -91,10 +103,14 @@ function validate(dishes: MenuDishInput[]): ValidationError | null {
 function trimMenu(dishes: MenuDishInput[]): MenuDishInput[] {
   return dishes.map((d) => ({
     name: d.name.trim(),
+    category: (d.category ?? '').trim(),
+    description: (d.description ?? '').trim(),
     base_price_cents: d.base_price_cents,
+    is_vegetarian: d.is_vegetarian ?? false,
     option_groups: d.option_groups.map((g) => ({
       name: g.name.trim(),
       selection_type: g.selection_type,
+      max_select: g.selection_type === 'multi' ? (g.max_select ?? null) : null,
       options: g.options.map((o) => ({
         name: o.name.trim(),
         price_delta_cents: o.price_delta_cents,

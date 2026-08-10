@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS dishes (
   id                CHAR(16) PRIMARY KEY,
   restaurant_id     CHAR(16) NOT NULL,
   name              VARCHAR(200) NOT NULL,
+  category          VARCHAR(80) NOT NULL DEFAULT '',
+  description       VARCHAR(500) NOT NULL DEFAULT '',
   base_price_cents  INT NOT NULL DEFAULT 0,
+  is_vegetarian     TINYINT(1) NOT NULL DEFAULT 0,
   sort_order        INT NOT NULL DEFAULT 0,
   FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
   INDEX (restaurant_id, sort_order)
@@ -35,6 +38,7 @@ CREATE TABLE IF NOT EXISTS dish_option_groups (
   dish_id         CHAR(16) NOT NULL,
   name            VARCHAR(120) NOT NULL,
   selection_type  ENUM('single','multi') NOT NULL,
+  max_select      INT NULL,
   sort_order      INT NOT NULL DEFAULT 0,
   FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE,
   INDEX (dish_id, sort_order)

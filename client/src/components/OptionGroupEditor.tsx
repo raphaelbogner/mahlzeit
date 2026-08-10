@@ -114,7 +114,23 @@ export function OptionGroupEditor({
   }
 
   function setSelectionType(selection_type: SelectionType): void {
-    onChange({ ...group, selection_type });
+    // max_select only applies to 'multi'; clear it when switching to 'single'.
+    if (selection_type === 'single') {
+      onChange({ ...group, selection_type, max_select: null });
+    } else {
+      onChange({ ...group, selection_type });
+    }
+  }
+
+  function setMaxSelect(raw: string): void {
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      onChange({ ...group, max_select: null });
+      return;
+    }
+    const n = Number.parseInt(trimmed, 10);
+    if (Number.isNaN(n) || n < 1) return;
+    onChange({ ...group, max_select: n });
   }
 
   const options = asOptions(group.options);
@@ -191,6 +207,20 @@ export function OptionGroupEditor({
             <option value="multi">mehrere (multi)</option>
           </select>
         </label>
+        {group.selection_type === 'multi' ? (
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-stone-700">max. Auswahl:</span>
+            <input
+              type="number"
+              min={1}
+              value={group.max_select ?? ''}
+              onChange={(e) => setMaxSelect(e.target.value)}
+              placeholder="∞"
+              className="block w-20 rounded-lg bg-white px-2.5 py-1 text-sm text-stone-900 shadow-sm ring-1 ring-stone-300 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
+              aria-label="Maximale Auswahl (leer = unbegrenzt)"
+            />
+          </label>
+        ) : null}
         <div className="ml-auto flex items-center gap-2">
           {onSaveAsTemplate ? (
             <button

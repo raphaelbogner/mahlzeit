@@ -266,6 +266,19 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
         <PayerIbanForm
           sessionId={session.id}
           profile={profile}
+          field="paid_by_iban"
+          onSaved={(updated) => onSessionChanged({ ...updated, items: session.items })}
+        />
+      ) : null}
+
+      {isCreator &&
+      session.paid_by_user_id === null &&
+      session.creator_iban === '' &&
+      aggregate.has_any_price ? (
+        <PayerIbanForm
+          sessionId={session.id}
+          profile={profile}
+          field="creator_iban"
           onSaved={(updated) => onSessionChanged({ ...updated, items: session.items })}
         />
       ) : null}
@@ -322,10 +335,11 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
 interface PayerIbanFormProps {
   sessionId: string;
   profile: Profile;
+  field: 'paid_by_iban' | 'creator_iban';
   onSaved: (session: Session) => void;
 }
 
-function PayerIbanForm({ sessionId, profile, onSaved }: PayerIbanFormProps) {
+function PayerIbanForm({ sessionId, profile, field, onSaved }: PayerIbanFormProps) {
   const [iban, setIban] = useState<string>(profile.iban ? formatIban(profile.iban) : '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
@@ -343,7 +357,7 @@ function PayerIbanForm({ sessionId, profile, onSaved }: PayerIbanFormProps) {
     try {
       const updated = await updateSession(sessionId, {
         user_id: profile.user_id,
-        paid_by_iban: cleaned,
+        [field]: cleaned,
       });
       onSaved(updated);
       showInfo('IBAN gespeichert.');
@@ -354,9 +368,14 @@ function PayerIbanForm({ sessionId, profile, onSaved }: PayerIbanFormProps) {
     }
   }
 
+  const headline =
+    field === 'creator_iban'
+      ? 'IBAN fehlt noch.'
+      : 'Du wurdest als Bezahler:in markiert.';
+
   return (
     <form onSubmit={handleSubmit} className="mt-5 alert-info" noValidate>
-      <p className="font-semibold">Du wurdest als Bezahler:in markiert.</p>
+      <p className="font-semibold">{headline}</p>
       <p className="mt-1 text-xs">
         Trag deine IBAN ein, damit die anderen wissen, wohin überwiesen werden soll.
       </p>

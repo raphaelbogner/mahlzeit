@@ -139,6 +139,18 @@ export function DishEditor({
     onChange({ ...dish, name });
   }
 
+  function setCategory(category: string): void {
+    onChange({ ...dish, category });
+  }
+
+  function setDescription(description: string): void {
+    onChange({ ...dish, description });
+  }
+
+  function setVegetarian(is_vegetarian: boolean): void {
+    onChange({ ...dish, is_vegetarian });
+  }
+
   function setBasePrice(base_price_cents: number): void {
     onChange({ ...dish, base_price_cents });
   }
@@ -207,8 +219,14 @@ export function DishEditor({
           >
             {displayName}
           </span>
+          {dish.is_vegetarian ? (
+            <span className="shrink-0" title="Vegetarisch" aria-label="Vegetarisch">
+              🌱
+            </span>
+          ) : null}
           <span className="shrink-0 text-xs text-stone-500 tabular-nums">
             {fmtPrice(dish.base_price_cents)} · {groupsLabel}
+            {dish.category && dish.category.trim() !== '' ? ` · ${dish.category}` : ''}
           </span>
         </button>
         <button
@@ -250,14 +268,57 @@ export function DishEditor({
         </button>
       </div>
 
-      <div className="mb-4 flex items-center gap-2 text-sm">
-        <label className="text-stone-700" htmlFor={`base-${dish.id ?? dish.name}`}>
-          Basispreis €:
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <div className="flex items-center gap-2">
+          <label className="text-stone-700" htmlFor={`base-${dish.id ?? dish.name}`}>
+            Basispreis €:
+          </label>
+          <DishPriceInput value={dish.base_price_cents} onCommit={setBasePrice} />
+          <span className="text-xs text-stone-500 tabular-nums">
+            {fmtPrice(dish.base_price_cents)}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-stone-700" htmlFor={`cat-${dish.id ?? dish.name}`}>
+            Kategorie:
+          </label>
+          <input
+            id={`cat-${dish.id ?? dish.name}`}
+            type="text"
+            value={dish.category ?? ''}
+            onChange={(e) => setCategory(e.target.value)}
+            maxLength={80}
+            placeholder="z. B. Pizza"
+            className="block w-36 rounded-lg bg-white px-3 py-1.5 text-sm text-stone-900 shadow-sm ring-1 ring-stone-300 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-stone-700">
+          <input
+            type="checkbox"
+            checked={dish.is_vegetarian ?? false}
+            onChange={(e) => setVegetarian(e.target.checked)}
+            className="accent-orange-500"
+          />
+          🌱 Vegetarisch
         </label>
-        <DishPriceInput value={dish.base_price_cents} onCommit={setBasePrice} />
-        <span className="text-xs text-stone-500 tabular-nums">
-          {fmtPrice(dish.base_price_cents)}
-        </span>
+      </div>
+
+      <div className="mb-4">
+        <label
+          className="label"
+          htmlFor={`desc-${dish.id ?? dish.name}`}
+        >
+          Beschreibung <span className="font-normal text-stone-400">(Zutaten, optional)</span>
+        </label>
+        <textarea
+          id={`desc-${dish.id ?? dish.name}`}
+          value={dish.description ?? ''}
+          onChange={(e) => setDescription(e.target.value)}
+          maxLength={500}
+          rows={2}
+          placeholder="z. B. Tomaten, Käse, Oregano, Sauce"
+          className="block w-full resize-y rounded-lg bg-white px-3 py-2 text-sm text-stone-900 shadow-sm ring-1 ring-stone-300 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
+        />
       </div>
 
       {groups.length > 0 ? (

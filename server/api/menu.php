@@ -37,7 +37,7 @@ function menu_replace(array $workspace, string $restaurantId): void
         if (!is_array($dish)) {
             error_response(400, 'INVALID_FIELD', "Dish #{$dishIdx} must be an object.");
         }
-        $allowedDish = ['id', 'name', 'base_price_cents', 'option_groups'];
+        $allowedDish = ['id', 'name', 'category', 'description', 'base_price_cents', 'is_vegetarian', 'option_groups'];
         foreach (array_keys($dish) as $k) {
             if (!in_array($k, $allowedDish, true)) {
                 error_response(400, 'UNKNOWN_FIELD', "Unknown field on dish #{$dishIdx}: {$k}");
@@ -50,6 +50,36 @@ function menu_replace(array $workspace, string $restaurantId): void
         if ($name === '' || strlen($name) > 200) {
             error_response(400, 'INVALID_FIELD', "Dish #{$dishIdx} name length 1..200.");
         }
+
+        // category / description are optional; default to empty string.
+        $category = '';
+        if (array_key_exists('category', $dish)) {
+            if (!is_string($dish['category'])) {
+                error_response(400, 'INVALID_FIELD', "Dish #{$dishIdx} category must be a string.");
+            }
+            $category = trim($dish['category']);
+            if (strlen($category) > 80) {
+                error_response(400, 'INVALID_FIELD', "Dish #{$dishIdx} category max length 80.");
+            }
+        }
+        $description = '';
+        if (array_key_exists('description', $dish)) {
+            if (!is_string($dish['description'])) {
+                error_response(400, 'INVALID_FIELD', "Dish #{$dishIdx} description must be a string.");
+            }
+            $description = trim($dish['description']);
+            if (strlen($description) > 500) {
+                error_response(400, 'INVALID_FIELD', "Dish #{$dishIdx} description max length 500.");
+            }
+        }
+        $isVegetarian = false;
+        if (array_key_exists('is_vegetarian', $dish)) {
+            if (!is_bool($dish['is_vegetarian'])) {
+                error_response(400, 'INVALID_FIELD', "Dish #{$dishIdx} is_vegetarian must be a boolean.");
+            }
+            $isVegetarian = $dish['is_vegetarian'];
+        }
+
         if (!isset($dish['base_price_cents']) || !is_int($dish['base_price_cents'])) {
             error_response(400, 'INVALID_FIELD', "Dish #{$dishIdx} base_price_cents must be int.");
         }
@@ -71,7 +101,7 @@ function menu_replace(array $workspace, string $restaurantId): void
             if (!is_array($group)) {
                 error_response(400, 'INVALID_FIELD', "Group #{$gIdx} on dish #{$dishIdx} must be an object.");
             }
-            $allowedGroup = ['id', 'name', 'selection_type', 'options'];
+            $allowedGroup = ['id', 'name', 'selection_type', 'max_select', 'options'];
             foreach (array_keys($group) as $k) {
                 if (!in_array($k, $allowedGroup, true)) {
                     error_response(400, 'UNKNOWN_FIELD', "Unknown field on group: {$k}");
@@ -89,6 +119,19 @@ function menu_replace(array $workspace, string $restaurantId): void
                 error_response(400, 'INVALID_FIELD', "Group selection_type must be 'single' or 'multi'.");
             }
             $selType = $group['selection_type'];
+
+            // max_select caps a 'multi' group's picks (NULL = unlimited).
+            // Meaningless for 'single' (always exactly one) → stored as NULL.
+            $maxSelect = null;
+            if (array_key_exists('max_select', $group) && $group['max_select'] !== null) {
+                if (!is_int($group['max_select']) || $group['max_select'] < 1
+                    || $group['max_select'] > MENU_MAX_OPTIONS_PER_GROUP) {
+                    error_response(400, 'INVALID_FIELD', "Group max_select must be an int 1.." . MENU_MAX_OPTIONS_PER_GROUP . ".");
+                }
+                if ($selType === 'multi') {
+                    $maxSelect = $group['max_select'];
+                }
+            }
             $optionsIn = $group['options'] ?? [];
             if (!is_array($optionsIn) || count($optionsIn) === 0) {
                 error_response(400, 'INVALID_FIELD', "Group on dish #{$dishIdx} needs at least one option.");
@@ -133,6 +176,7 @@ function menu_replace(array $workspace, string $restaurantId): void
             $normGroups[] = [
                 'name'           => $gName,
                 'selection_type' => $selType,
+                'max_select'     => $maxSelect,
                 'sort_order'     => $gIdx,
                 'options'        => $normOptions,
             ];
@@ -140,7 +184,10 @@ function menu_replace(array $workspace, string $restaurantId): void
 
         $normalized[] = [
             'name'             => $name,
+            'category'         => $category,
+            'description'      => $description,
             'base_price_cents' => $basePrice,
+            'is_vegetarian'    => $isVegetarian,
             'sort_order'       => $dishIdx,
             'option_groups'    => $normGroups,
         ];
@@ -158,12 +205,12 @@ function menu_replace(array $workspace, string $restaurantId): void
         $del->execute([':rid' => $restaurant['id']]);
 
         $insertDish = $pdo->prepare(
-            'INSERT INTO dishes (id, restaurant_id, name, base_price_cents, sort_order)
-             VALUES (:id, :rid, :name, :price, :sort)'
+            'INSERT INTO dishes (id, restaurant_id, name, category, description, base_price_cents, is_vegetarian, sort_order)
+             VALUES (:id, :rid, :name, :category, :description, :price, :veg, :sort)'
         );
         $insertGroup = $pdo->prepare(
-            'INSERT INTO dish_option_groups (id, dish_id, name, selection_type, sort_order)
-             VALUES (:id, :did, :name, :stype, :sort)'
+            'INSERT INTO dish_option_groups (id, dish_id, name, selection_type, max_select, sort_order)
+             VALUES (:id, :did, :name, :stype, :max, :sort)'
         );
         $insertOption = $pdo->prepare(
             'INSERT INTO dish_options (id, group_id, name, price_delta_cents, sort_order)
@@ -173,11 +220,14 @@ function menu_replace(array $workspace, string $restaurantId): void
         foreach ($normalized as $d) {
             $dishId = generate_id();
             $insertDish->execute([
-                ':id'    => $dishId,
-                ':rid'   => $restaurant['id'],
-                ':name'  => $d['name'],
-                ':price' => $d['base_price_cents'],
-                ':sort'  => $d['sort_order'],
+                ':id'          => $dishId,
+                ':rid'         => $restaurant['id'],
+                ':name'        => $d['name'],
+                ':category'    => $d['category'],
+                ':description' => $d['description'],
+                ':price'       => $d['base_price_cents'],
+                ':veg'         => $d['is_vegetarian'] ? 1 : 0,
+                ':sort'        => $d['sort_order'],
             ]);
             foreach ($d['option_groups'] as $g) {
                 $groupId = generate_id();
@@ -186,6 +236,7 @@ function menu_replace(array $workspace, string $restaurantId): void
                     ':did'   => $dishId,
                     ':name'  => $g['name'],
                     ':stype' => $g['selection_type'],
+                    ':max'   => $g['max_select'],
                     ':sort'  => $g['sort_order'],
                 ]);
                 foreach ($g['options'] as $o) {

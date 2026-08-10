@@ -7,7 +7,10 @@ function makeDish(): Dish {
     id: 'dish0000000000aa',
     restaurant_id: 'rest0000000000aa',
     name: 'Margherita',
+    category: 'Pizza',
+    description: '',
     base_price_cents: 950,
+    is_vegetarian: true,
     sort_order: 0,
     option_groups: [
       {
@@ -15,6 +18,7 @@ function makeDish(): Dish {
         dish_id: 'dish0000000000aa',
         name: 'Größe',
         selection_type: 'single',
+        max_select: null,
         sort_order: 0,
         options: [
           {
@@ -45,6 +49,7 @@ function makeDish(): Dish {
         dish_id: 'dish0000000000aa',
         name: 'Toppings',
         selection_type: 'multi',
+        max_select: null,
         sort_order: 1,
         options: [
           {

@@ -9,8 +9,10 @@ import { ProfileMenu } from './ProfileMenu';
 import { Summary } from './Summary';
 import { DeadlineBadge } from './DeadlineBadge';
 import { DeadlinePicker } from './DeadlinePicker';
+import { ShareButton } from './ShareButton';
 import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
-import { ApiError } from '../api/client';
+import { ApiError, getWorkspaceToken } from '../api/client';
+import { buildInviteText, buildSessionUrl } from '../lib/share';
 import { deleteSession, updateSession } from '../api/sessions';
 import type { Profile } from '../hooks/useProfile';
 import type { Item, Session } from '../types/api';
@@ -242,8 +244,27 @@ export function SessionDetail({ profile }: SessionDetailProps) {
               )}
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+              {isOpen ? (
+                <ShareButton
+                  label="Einladen"
+                  title={`Sammelbestellung: ${session.title}`}
+                  getText={() =>
+                    buildInviteText({
+                      title: session.title,
+                      restaurant_name: session.restaurant_name,
+                      deadline_at: session.deadline_at,
+                      url: buildSessionUrl(
+                        session.id,
+                        getWorkspaceToken() ?? '',
+                        window.location.origin,
+                      ),
+                    })
+                  }
+                />
+              ) : null}
             {isCreator && (
-              <div className="flex flex-wrap items-center gap-2">
+              <>
                 <button
                   type="button"
                   onClick={handleToggleStatus}
@@ -282,8 +303,9 @@ export function SessionDetail({ profile }: SessionDetailProps) {
                     </button>
                   </div>
                 )}
-              </div>
+              </>
             )}
+            </div>
           </div>
         </header>
 

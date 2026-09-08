@@ -55,6 +55,17 @@ export function formatDeadline(deadline: Date, now: Date): string {
   return `am ${dayMonth.format(deadline)} um ${time}`;
 }
 
+// Absolute wording for messages: "heute um 11:30", "morgen um 11:30",
+// "am 12.09. um 11:30".
+export function formatDeadlineAbsolute(deadline: Date, now: Date): string {
+  const time = formatClock(deadline);
+  if (isSameLocalDay(deadline, now)) return `heute um ${time}`;
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (isSameLocalDay(deadline, tomorrow)) return `morgen um ${time}`;
+  return `am ${dayMonth.format(deadline)} um ${time}`;
+}
+
 // Build a Date for "today or tomorrow at HH:MM" in local time.
 export function atLocalTime(day: Date, hhmm: string): Date | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());

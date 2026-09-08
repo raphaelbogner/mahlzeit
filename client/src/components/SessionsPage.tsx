@@ -5,6 +5,9 @@ import { SessionList } from './SessionList';
 import { ProfileMenu } from './ProfileMenu';
 import { useErrorToast } from './Toast';
 import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
+import { ShareButton } from './ShareButton';
+import { getWorkspaceToken } from '../api/client';
+import { buildWorkspaceInviteText, buildWorkspaceUrl } from '../lib/share';
 import type { Profile } from '../hooks/useProfile';
 
 export interface SessionsPageProps {
@@ -29,6 +32,16 @@ export function SessionsPage({ profile }: SessionsPageProps) {
             <WorkspaceLink to="/restaurants" className="btn-link">
               Restaurants
             </WorkspaceLink>
+            <ShareButton
+              label="Link teilen"
+              title="Mahlzeit-Workspace"
+              getText={() =>
+                buildWorkspaceInviteText(
+                  buildWorkspaceUrl(getWorkspaceToken() ?? '', window.location.origin),
+                )
+              }
+              className="btn-link text-sm"
+            />
             <ProfileMenu />
           </div>
         </div>

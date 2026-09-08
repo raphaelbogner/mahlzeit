@@ -4,6 +4,7 @@ import {
   atLocalTime,
   deadlineUrgency,
   formatDeadline,
+  formatDeadlineAbsolute,
   nextOccurrence,
   parseDeadline,
   toTimeInputValue,
@@ -53,6 +54,14 @@ describe('formatDeadline', () => {
 
   it('shows only the time once passed', () => {
     expect(formatDeadline(addMinutes(now, -5), now)).toMatch(/^um \d{2}:\d{2}$/);
+  });
+});
+
+describe('formatDeadlineAbsolute', () => {
+  it('uses heute / morgen / date wording', () => {
+    expect(formatDeadlineAbsolute(new Date(2026, 8, 8, 11, 30), now)).toMatch(/^heute um \d{2}:\d{2}$/);
+    expect(formatDeadlineAbsolute(new Date(2026, 8, 9, 11, 30), now)).toMatch(/^morgen um \d{2}:\d{2}$/);
+    expect(formatDeadlineAbsolute(new Date(2026, 8, 12, 11, 30), now)).toMatch(/^am 12\.09\. um \d{2}:\d{2}$/);
   });
 });
 

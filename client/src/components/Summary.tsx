@@ -6,10 +6,12 @@ import { fmtPrice, parsePrice } from '../lib/price';
 import { cleanIban, formatIban, isValidIban } from '../lib/iban';
 import type { Session } from '../types/api';
 import type { Profile } from '../hooks/useProfile';
-import { ApiError } from '../api/client';
+import { ApiError, getWorkspaceToken } from '../api/client';
 import { updateSession } from '../api/sessions';
+import { buildPaymentText, buildSessionUrl, copyText } from '../lib/share';
 import { useToast } from './Toast';
 import { PaymentQr } from './PaymentQr';
+import { ShareButton } from './ShareButton';
 
 export interface SummaryProps {
   session: Session;
@@ -119,27 +121,14 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
   const isViewerPayer = profile.user_id === effectivePayerId;
 
   async function handleCopy(): Promise<void> {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'absolute';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        const ok = document.execCommand('copy');
-        document.body.removeChild(ta);
-        if (!ok) throw new Error('execCommand failed');
-      }
-      setCopied(true);
-      showInfo('Zusammenfassung kopiert.');
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
+    const ok = await copyText(text, navigator, document);
+    if (!ok) {
       showError('Kopieren fehlgeschlagen.');
+      return;
     }
+    setCopied(true);
+    showInfo('Zusammenfassung kopiert.');
+    window.setTimeout(() => setCopied(false), 2000);
   }
 
   async function handlePayerChange(newPayerId: string): Promise<void> {
@@ -173,16 +162,30 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
 
   return (
     <section className="card-pad">
-      <div className="mb-4 flex items-baseline justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="h-section">Zusammenfassung</h2>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="btn-secondary btn-sm"
-          aria-label="Zusammenfassung als Text kopieren"
-        >
-          {copied ? 'Kopiert ✓' : 'Text kopieren'}
-        </button>
+        <div className="flex items-center gap-2">
+          {isClosed ? (
+            <ShareButton
+              label="Teilen"
+              title={`Zahlungsübersicht: ${session.title}`}
+              getText={() =>
+                buildPaymentText(
+                  text,
+                  buildSessionUrl(session.id, getWorkspaceToken() ?? '', window.location.origin),
+                )
+              }
+            />
+          ) : null}
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="btn-secondary btn-sm"
+            aria-label="Zusammenfassung als Text kopieren"
+          >
+            {copied ? 'Kopiert ✓' : 'Text kopieren'}
+          </button>
+        </div>
       </div>
 
       <div className="mb-5">

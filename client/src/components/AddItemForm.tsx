@@ -8,6 +8,9 @@ import type { Dish, Item } from '../types/api';
 import type { Profile } from '../hooks/useProfile';
 import { DishPicker } from './DishPicker';
 import { QuantityStepper } from './QuantityStepper';
+import { ReorderSuggestions } from './ReorderSuggestions';
+import { useSuggestions } from '../hooks/useSuggestions';
+import type { DishPrefill } from '../lib/suggestions';
 import { useToast } from './Toast';
 
 export interface AddItemFormProps {
@@ -29,6 +32,8 @@ export function AddItemForm({
   const [menuLoading, setMenuLoading] = useState<boolean>(false);
   const [menuError, setMenuError] = useState<string | null>(null);
   const [forceFreitext, setForceFreitext] = useState<boolean>(false);
+  const [prefill, setPrefill] = useState<DishPrefill | null>(null);
+  const { suggestions } = useSuggestions(sessionId, profile.user_id, restaurantId);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +96,21 @@ export function AddItemForm({
         </div>
       )}
 
+      {restaurantId !== null && !menuLoading && suggestions.length > 0 ? (
+        <ReorderSuggestions
+          sessionId={sessionId}
+          profile={profile}
+          dishes={dishes ?? []}
+          suggestions={suggestions}
+          onAdded={onAdded}
+          onPrefill={(next) => {
+            setForceFreitext(false);
+            setPrefill(next);
+          }}
+          disabled={disabled}
+        />
+      ) : null}
+
       {showPicker ? (
         <DishPicker
           sessionId={sessionId}
@@ -100,6 +120,7 @@ export function AddItemForm({
             onAdded(item);
           }}
           disabled={disabled}
+          prefill={prefill}
         />
       ) : (
         <FreitextItemForm

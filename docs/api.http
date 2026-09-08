@@ -521,3 +521,16 @@ Content-Type: application/json
 ### Any GET closes overdue sessions first; check auto_closed / closed_at
 GET {{host}}/api/sessions/{{sessionId}}
 X-Workspace-Token: {{token}}
+
+### =====================================================================
+### Phase 1 – "order again" suggestions (read-only)
+### =====================================================================
+
+### Last 3 distinct orders of this user at the session's restaurant
+### (empty list when the session has no linked restaurant)
+GET {{host}}/api/sessions/{{sessionId}}/suggestions?user_id={{userId}}
+X-Workspace-Token: {{token}}
+
+### Missing/invalid user_id → 400 INVALID_FIELD
+GET {{host}}/api/sessions/{{sessionId}}/suggestions
+X-Workspace-Token: {{token}}

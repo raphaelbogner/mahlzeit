@@ -59,6 +59,24 @@ export interface SessionsListResponse {
   sessions: SessionSummary[];
 }
 
+// "Order this again" suggestion from earlier sessions at the same restaurant.
+export interface ReorderSuggestion {
+  kind: 'structured' | 'freetext';
+  dish_id: string | null;
+  dish: string;
+  options: ItemOptionSnapshot[];
+  note: string;
+  quantity: number;
+  // Historic unit price; the client recomputes from the current menu when possible.
+  price_cents: number | null;
+  last_ordered_at: string | null;
+  times_ordered: number;
+}
+
+export interface SuggestionsResponse {
+  suggestions: ReorderSuggestion[];
+}
+
 export interface DishOption {
   id: string;
   group_id: string;

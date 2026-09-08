@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { addStructuredItem } from '../api/items';
 import { ApiError } from '../api/client';
@@ -15,33 +15,8 @@ import type { Dish, Item } from '../types/api';
 import type { Profile } from '../hooks/useProfile';
 import { useToast } from './Toast';
 
-// Fold to lowercase and strip diacritics so "durum" matches "Dürüm".
-function fold(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
-}
-
-// Emoji for a category label. Substring match keeps it forgiving
-// ("Kebap Box" still reads as a box). Falls back to a neutral plate.
-function categoryEmoji(category: string): string {
-  const c = fold(category);
-  if (c.includes('pizza')) return '🍕';
-  if (c.includes('box')) return '🍟';
-  if (c.includes('durum')) return '🌯';
-  if (c.includes('kebap') || c.includes('kebab')) return '🥙';
-  if (c.includes('getrank') || c.includes('drink') || c.includes('cola')) return '🥤';
-  if (c.includes('dessert') || c.includes('nachspeise') || c.includes('suss')) return '🍰';
-  if (c.includes('salat') || c.includes('vorspeise')) return '🥗';
-  return '🍽️';
-}
-
-const UNCATEGORISED = 'Weitere';
-
-function dishCategory(d: Dish): string {
-  return d.category.trim() === '' ? UNCATEGORISED : d.category.trim();
-}
+import { categoryEmoji, dishCategory, fold } from '../lib/dishDisplay';
+import type { DishPrefill } from '../lib/suggestions';
 
 interface CategoryChip {
   category: string;
@@ -74,6 +49,8 @@ export interface DishPickerProps {
   profile: Profile;
   onAdded: (item: Item) => void;
   disabled?: boolean;
+  // Set by "order again" suggestions that need review; applied once per key.
+  prefill?: DishPrefill | null;
 }
 
 export function DishPicker({
@@ -82,6 +59,7 @@ export function DishPicker({
   profile,
   onAdded,
   disabled,
+  prefill,
 }: DishPickerProps) {
   const [dishId, setDishId] = useState<string>(() => dishes[0]?.id ?? '');
   const dish = dishes.find((d) => d.id === dishId) ?? null;
@@ -102,6 +80,26 @@ export function DishPicker({
   const [quantity, setQuantity] = useState<number>(1);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const { showError } = useToast();
+
+  // Apply an incoming prefill exactly once (derived-state pattern, same as
+  // the dish change above). Clears filters so the chosen dish is visible.
+  const [appliedPrefillKey, setAppliedPrefillKey] = useState<number | null>(null);
+  if (prefill && prefill.key !== appliedPrefillKey) {
+    setAppliedPrefillKey(prefill.key);
+    setDishId(prefill.dishId);
+    setTrackedDishId(prefill.dishId);
+    setSelectedIds(new Set(prefill.optionIds));
+    setNote(prefill.note);
+    setQuantity(prefill.quantity);
+    setActiveCategory(null);
+    setQuery('');
+  }
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (appliedPrefillKey !== null) {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [appliedPrefillKey]);
 
   const chips = useMemo<CategoryChip[]>(() => categoryChips(dishes), [dishes]);
   // A single category doesn't warrant a filter row.
@@ -182,7 +180,7 @@ export function DishPicker({
   const totalCents = dish ? computePrice(dish, selectedIds) : 0;
 
   return (
-    <form onSubmit={handleSubmit} className="card-pad space-y-4" noValidate>
+    <form ref={formRef} onSubmit={handleSubmit} className="card-pad space-y-4" noValidate>
       <div>
         <label htmlFor="dish-search" className="label">
           Gericht

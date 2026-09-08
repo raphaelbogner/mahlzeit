@@ -10,6 +10,7 @@ require_once __DIR__ . '/sessions.php';
 require_once __DIR__ . '/items.php';
 require_once __DIR__ . '/restaurants.php';
 require_once __DIR__ . '/templates.php';
+require_once __DIR__ . '/suggestions.php';
 
 set_error_handler(function (int $errno, string $msg, string $file, int $line): bool {
     if (!(error_reporting() & $errno)) {
@@ -58,8 +59,14 @@ $resource = array_shift($segments);
 
 switch ($resource) {
     case 'sessions':
-        // sessions[/{id}[/items[/{itemId}]]]
-        if (count($segments) >= 2 && $segments[1] === 'items') {
+        // sessions[/{id}[/items[/{itemId}]]] and sessions/{id}/suggestions
+        if (count($segments) === 2 && $segments[1] === 'suggestions') {
+            $sessionId = $segments[0];
+            if (!is_valid_id($sessionId)) {
+                error_response(404, 'NOT_FOUND', 'Session not found.');
+            }
+            handle_suggestions_route($method, $workspace, $sessionId);
+        } elseif (count($segments) >= 2 && $segments[1] === 'items') {
             $sessionId = $segments[0];
             if (!is_valid_id($sessionId)) {
                 error_response(404, 'NOT_FOUND', 'Session not found.');

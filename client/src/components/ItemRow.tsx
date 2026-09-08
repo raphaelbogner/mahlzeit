@@ -6,6 +6,7 @@ import { fmtPrice, parsePrice } from '../lib/price';
 import type { Item, ItemOptionSnapshot } from '../types/api';
 import type { Profile } from '../hooks/useProfile';
 import { useToast } from './Toast';
+import { QuantityStepper } from './QuantityStepper';
 
 // Render structured options grouped by group name.
 // Example: "Größe: Mittel · Toppings: extra Käse (+€1,00), Salami (+€1,50)"
@@ -58,6 +59,7 @@ export function ItemRow({
   const [price, setPrice] = useState<string>(
     item.price_cents === null ? '' : (item.price_cents / 100).toFixed(2).replace('.', ','),
   );
+  const [quantity, setQuantity] = useState<number>(item.quantity);
   const [errors, setErrors] = useState<{ dish?: string; price?: string }>({});
   const [busy, setBusy] = useState<boolean>(false);
   const [confirmingDelete, setConfirmingDelete] = useState<boolean>(false);
@@ -79,6 +81,7 @@ export function ItemRow({
     setPrice(
       item.price_cents === null ? '' : (item.price_cents / 100).toFixed(2).replace('.', ','),
     );
+    setQuantity(item.quantity);
     setErrors({});
     setEditing(true);
   }
@@ -100,6 +103,7 @@ export function ItemRow({
         const updated = await updateItem(sessionId, item.id, {
           user_id: profile.user_id,
           note: trimmedNote,
+          quantity,
         });
         onChanged(updated);
         setEditing(false);
@@ -137,6 +141,7 @@ export function ItemRow({
         dish: trimmedDish,
         note: trimmedNote,
         price_cents: priceCents,
+        quantity,
       });
       onChanged(updated);
       setEditing(false);
@@ -226,6 +231,15 @@ export function ItemRow({
               )}
             </>
           )}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-stone-700">Menge</span>
+            <QuantityStepper
+              value={quantity}
+              onChange={setQuantity}
+              disabled={busy}
+              label={`Menge für ${item.dish}`}
+            />
+          </div>
           <div className="flex gap-2">
             <button type="submit" disabled={busy} className="btn-primary flex-1 btn-sm">
               {busy ? 'Speichert…' : 'Speichern'}
@@ -275,10 +289,18 @@ export function ItemRow({
 
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
-            <span className={'font-semibold text-stone-900 ' + strike}>{item.dish}</span>
+            <span className={'font-semibold text-stone-900 ' + strike}>
+              {item.quantity > 1 ? (
+                <span className="font-medium text-stone-500">{item.quantity}× </span>
+              ) : null}
+              {item.dish}
+            </span>
             {item.price_cents !== null && (
               <span className={'tabular-nums text-stone-700 ' + strike}>
-                {fmtPrice(item.price_cents)}
+                {fmtPrice(item.price_cents * item.quantity)}
+                {item.quantity > 1 ? (
+                  <span className="text-xs text-stone-500"> ({fmtPrice(item.price_cents)}/Stk)</span>
+                ) : null}
               </span>
             )}
             {isPaid ? <span className="badge-success">bezahlt</span> : null}

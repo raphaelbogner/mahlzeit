@@ -18,6 +18,10 @@ echo "\nitems.paid_at:\n";
 foreach ($pdo->query("SHOW COLUMNS FROM items LIKE 'paid_at'") as $r) {
     echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}\n";
 }
+echo "\nitems.quantity:\n";
+foreach ($pdo->query("SHOW COLUMNS FROM items LIKE 'quantity'") as $r) {
+    echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}  default=" . var_export($r['Default'], true) . "\n";
+}
 echo "\noption_group_template* tables:\n";
 foreach ($pdo->query("SHOW TABLES LIKE 'option_group_template%'") as $r) {
     $name = array_values($r)[0];

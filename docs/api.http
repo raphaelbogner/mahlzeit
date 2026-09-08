@@ -409,3 +409,53 @@ Content-Type: application/json
   "user_id": "{{userId}}",
   "paid": true
 }
+
+### =====================================================================
+### Phase 1 – quantity (migration 006)
+### =====================================================================
+
+### Freitext item with quantity (unit price 2,50 € → line total 7,50 €)
+POST {{host}}/api/sessions/{{sessionId}}/items
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "Anna",
+  "dish": "Cola",
+  "price_cents": 250,
+  "quantity": 3
+}
+
+### Structured item with quantity
+POST {{host}}/api/sessions/{{sessionId}}/items
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "Anna",
+  "dish_id": "{{dishId}}",
+  "option_ids": [],
+  "quantity": 2
+}
+
+### Change quantity (owner, session open; works for structured items too)
+PATCH {{host}}/api/sessions/{{sessionId}}/items/{{itemId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "quantity": 4
+}
+
+### Invalid quantity → 400 INVALID_FIELD
+PATCH {{host}}/api/sessions/{{sessionId}}/items/{{itemId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "quantity": 21
+}

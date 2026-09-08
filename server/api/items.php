@@ -53,7 +53,7 @@ function items_create(array $session, array $workspace): void
     // of dish_id in the body switches modes.
     reject_unknown_fields($body, [
         'user_id', 'user_name', 'dish', 'note', 'price_cents',
-        'dish_id', 'option_ids',
+        'dish_id', 'option_ids', 'quantity',
     ]);
 
     $userId = require_string($body, 'user_id', 16, 16);
@@ -62,9 +62,10 @@ function items_create(array $session, array $workspace): void
     }
     $userName = require_string($body, 'user_name', 120);
     $note     = optional_string($body, 'note', 300);
+    $quantity = parse_quantity($body);
 
     if (array_key_exists('dish_id', $body) && $body['dish_id'] !== null && $body['dish_id'] !== '') {
-        items_create_structured($session, $workspace, $userId, $userName, $note, $body);
+        items_create_structured($session, $workspace, $userId, $userName, $note, $quantity, $body);
         return;
     }
 
@@ -78,9 +79,9 @@ function items_create(array $session, array $workspace): void
     $id = generate_id();
     $stmt = db()->prepare(
         'INSERT INTO items
-            (id, session_id, user_id, user_name, dish_id, dish, note, price_cents, options_json)
+            (id, session_id, user_id, user_name, dish_id, dish, note, price_cents, quantity, options_json)
          VALUES
-            (:id, :sid, :uid, :uname, NULL, :dish, :note, :price, NULL)'
+            (:id, :sid, :uid, :uname, NULL, :dish, :note, :price, :qty, NULL)'
     );
     $stmt->execute([
         ':id'    => $id,
@@ -90,6 +91,7 @@ function items_create(array $session, array $workspace): void
         ':dish'  => $dish,
         ':note'  => $note,
         ':price' => $priceCents,
+        ':qty'   => $quantity,
     ]);
 
     $item = load_item_or_404($session['id'], $id);
@@ -102,6 +104,7 @@ function items_create_structured(
     string $userId,
     string $userName,
     string $note,
+    int $quantity,
     array $body
 ): void {
     if (array_key_exists('dish', $body)) {
@@ -228,9 +231,9 @@ function items_create_structured(
     $id = generate_id();
     $stmt = $pdo->prepare(
         'INSERT INTO items
-            (id, session_id, user_id, user_name, dish_id, dish, note, price_cents, options_json)
+            (id, session_id, user_id, user_name, dish_id, dish, note, price_cents, quantity, options_json)
          VALUES
-            (:id, :sid, :uid, :uname, :did, :dish, :note, :price, :opts)'
+            (:id, :sid, :uid, :uname, :did, :dish, :note, :price, :qty, :opts)'
     );
     $stmt->execute([
         ':id'    => $id,
@@ -241,6 +244,7 @@ function items_create_structured(
         ':dish'  => $dish['name'],
         ':note'  => $note,
         ':price' => $priceCents,
+        ':qty'   => $quantity,
         ':opts'  => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
     ]);
 
@@ -251,17 +255,18 @@ function items_create_structured(
 function items_patch(array $session, string $itemId): void
 {
     $body = read_json_body();
-    reject_unknown_fields($body, ['user_id', 'dish', 'note', 'price_cents', 'paid']);
+    reject_unknown_fields($body, ['user_id', 'dish', 'note', 'price_cents', 'quantity', 'paid']);
 
     $existing = load_item_or_404($session['id'], $itemId);
 
     $userId = require_string($body, 'user_id', 16, 16);
 
     // Two distinct edit modes share this endpoint:
-    //   1) content edit (dish/note/price)  → item author, only when session open, freitext only
-    //   2) paid toggle                      → effective payer (paid_by_user_id ?? creator_id)
+    //   1) content edit (dish/note/price/quantity) → item author, only when session open;
+    //      dish/price only on freitext items (structured ones are snapshots)
+    //   2) paid toggle                              → effective payer (paid_by_user_id ?? creator_id)
     // Both can occur in one request; each is checked independently.
-    $contentKeys = ['dish', 'note', 'price_cents'];
+    $contentKeys = ['dish', 'note', 'price_cents', 'quantity'];
     $touchesContent = false;
     foreach ($contentKeys as $k) {
         if (array_key_exists($k, $body)) {
@@ -303,6 +308,9 @@ function items_patch(array $session, string $itemId): void
     }
     if (array_key_exists('price_cents', $body)) {
         $updates['price_cents'] = parse_optional_price_cents($body, 'price_cents');
+    }
+    if (array_key_exists('quantity', $body)) {
+        $updates['quantity'] = parse_quantity($body);
     }
 
     $setParts = [];
@@ -357,7 +365,7 @@ function load_item_or_404(string $sessionId, string $itemId): array
 {
     $stmt = db()->prepare(
         'SELECT id, session_id, user_id, user_name, dish_id, dish, note,
-                price_cents, options_json, added_at, paid_at
+                price_cents, quantity, options_json, added_at, paid_at
          FROM items
          WHERE id = :id AND session_id = :sid
          LIMIT 1'
@@ -368,6 +376,20 @@ function load_item_or_404(string $sessionId, string $itemId): array
         error_response(404, 'NOT_FOUND', 'Item not found.');
     }
     return format_item_row($row);
+}
+
+// Missing → 1. Otherwise an integer between 1 and 20 (guards against typos
+// like 200 Ayran). Rejects floats / strings / null.
+function parse_quantity(array $body): int
+{
+    if (!array_key_exists('quantity', $body)) {
+        return 1;
+    }
+    $v = $body['quantity'];
+    if (!is_int($v) || $v < 1 || $v > 20) {
+        error_response(400, 'INVALID_FIELD', 'Field quantity must be an integer between 1 and 20.');
+    }
+    return $v;
 }
 
 // Accepts null, missing, or a non-negative integer. Rejects floats / strings.

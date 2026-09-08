@@ -109,7 +109,7 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
     let unpaidGross = 0;
     for (const item of session.items) {
       if (item.user_id === profile.user_id && item.price_cents !== null && item.paid_at === null) {
-        unpaidGross += item.price_cents;
+        unpaidGross += item.price_cents * item.quantity;
       }
     }
     const myShare = aggregate.per_person.find((p) => p.user_name === profile.user_name);

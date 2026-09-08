@@ -4,6 +4,7 @@ import { addStructuredItem } from '../api/items';
 import { ApiError } from '../api/client';
 import { computePrice, defaultSelection } from '../lib/menuPricing';
 import { fmtPrice } from '../lib/price';
+import { QuantityStepper } from './QuantityStepper';
 
 function fmtDelta(cents: number): string {
   if (cents === 0) return '';
@@ -98,6 +99,7 @@ export function DishPicker({
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [query, setQuery] = useState<string>('');
   const [note, setNote] = useState<string>('');
+  const [quantity, setQuantity] = useState<number>(1);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const { showError } = useToast();
 
@@ -164,10 +166,12 @@ export function DishPicker({
         dish_id: dish.id,
         option_ids: Array.from(selectedIds),
         note: note.trim(),
+        quantity,
       });
       onAdded(item);
       setSelectedIds(new Set(defaultSelection(dish)));
       setNote('');
+      setQuantity(1);
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Eintrag fehlgeschlagen.');
     } finally {
@@ -359,11 +363,34 @@ export function DishPicker({
         />
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-stone-200/80 pt-4">
-        <p className="text-sm text-stone-700 tabular-nums">
-          Endpreis:{' '}
-          <span className="text-base font-semibold text-stone-900">{fmtPrice(totalCents)}</span>
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200/80 pt-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <QuantityStepper
+            value={quantity}
+            onChange={setQuantity}
+            disabled={disabled || submitting}
+            label={dish ? `Menge für ${dish.name}` : 'Menge'}
+          />
+          <p className="text-sm text-stone-700 tabular-nums">
+            {quantity > 1 ? (
+              <>
+                <span className="text-stone-500">
+                  {quantity} × {fmtPrice(totalCents)} ={' '}
+                </span>
+                <span className="text-base font-semibold text-stone-900">
+                  {fmtPrice(totalCents * quantity)}
+                </span>
+              </>
+            ) : (
+              <>
+                Endpreis:{' '}
+                <span className="text-base font-semibold text-stone-900">
+                  {fmtPrice(totalCents)}
+                </span>
+              </>
+            )}
+          </p>
+        </div>
         <button
           type="submit"
           disabled={disabled || submitting || !dish}

@@ -7,6 +7,7 @@ import { fmtPrice, parsePrice } from '../lib/price';
 import type { Dish, Item } from '../types/api';
 import type { Profile } from '../hooks/useProfile';
 import { DishPicker } from './DishPicker';
+import { QuantityStepper } from './QuantityStepper';
 import { useToast } from './Toast';
 
 export interface AddItemFormProps {
@@ -135,6 +136,7 @@ function FreitextItemForm({ sessionId, profile, onAdded, disabled }: FreitextIte
   const [dish, setDish] = useState<string>('');
   const [note, setNote] = useState<string>('');
   const [price, setPrice] = useState<string>('');
+  const [quantity, setQuantity] = useState<number>(1);
   const [errors, setErrors] = useState<{ dish?: string; price?: string }>({});
   const [submitting, setSubmitting] = useState<boolean>(false);
   const { showError } = useToast();
@@ -177,11 +179,13 @@ function FreitextItemForm({ sessionId, profile, onAdded, disabled }: FreitextIte
         dish: trimmedDish,
         note: trimmedNote,
         price_cents: priceCents,
+        quantity,
       });
       onAdded(item);
       setDish('');
       setNote('');
       setPrice('');
+      setQuantity(1);
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Eintrag fehlgeschlagen.');
     } finally {
@@ -250,8 +254,22 @@ function FreitextItemForm({ sessionId, profile, onAdded, disabled }: FreitextIte
           </p>
         )}
         {price.trim() && !errors.price && parsePrice(price) !== null && (
-          <p className="mt-1 help-xs tabular-nums">{fmtPrice(parsePrice(price)!)}</p>
+          <p className="mt-1 help-xs tabular-nums">
+            {quantity > 1
+              ? `${quantity} × ${fmtPrice(parsePrice(price)!)} = ${fmtPrice(parsePrice(price)! * quantity)}`
+              : fmtPrice(parsePrice(price)!)}
+          </p>
         )}
+      </div>
+
+      <div>
+        <span className="label">Menge</span>
+        <QuantityStepper
+          value={quantity}
+          onChange={setQuantity}
+          disabled={disabled || submitting}
+          label="Menge"
+        />
       </div>
 
       <button

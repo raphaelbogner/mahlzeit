@@ -15,7 +15,9 @@ export interface Item {
   dish_id: string | null;
   dish: string;
   note: string;
+  // Unit price; the line total is price_cents * quantity.
   price_cents: number | null;
+  quantity: number;
   options: ItemOptionSnapshot[] | null;
   added_at: string;
   paid_at: string | null;
@@ -134,6 +136,7 @@ export interface AddFreeTextItemInput {
   dish: string;
   note?: string;
   price_cents?: number | null;
+  quantity?: number;
 }
 
 export interface AddStructuredItemInput {
@@ -142,6 +145,7 @@ export interface AddStructuredItemInput {
   dish_id: string;
   option_ids: string[];
   note?: string;
+  quantity?: number;
 }
 
 export type AddItemInput = AddFreeTextItemInput | AddStructuredItemInput;
@@ -151,6 +155,7 @@ export interface UpdateItemInput {
   dish?: string;
   note?: string;
   price_cents?: number | null;
+  quantity?: number;
   paid?: boolean;
 }
 

@@ -12,6 +12,7 @@ function makeItem(partial: Partial<Item> & Pick<Item, 'id' | 'user_name' | 'dish
     dish: partial.dish,
     note: partial.note ?? '',
     price_cents: partial.price_cents ?? null,
+    quantity: partial.quantity ?? 1,
     options: partial.options ?? null,
     added_at: partial.added_at ?? '2026-05-05 10:00:00',
     paid_at: partial.paid_at ?? null,
@@ -209,6 +210,35 @@ describe('aggregateItems', () => {
     expect(agg.net_total_cents).toBe(0);
     expect(agg.per_person[0]!.net_cents).toBe(0);
     expect(agg.per_person[0]!.discount_cents).toBe(500);
+  });
+
+  it('multiplies quantity into line totals, counts and per-person sums', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'Cola', price_cents: 250, quantity: 2 }),
+      makeItem({ id: 'i2aaaaaaaaaaaaaa', user_name: 'Ben', dish: 'Cola', price_cents: 250, quantity: 1 }),
+      makeItem({ id: 'i3aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'Pizza', price_cents: 900, quantity: 3 }),
+    ];
+    const agg = aggregateItems(items);
+    const cola = agg.lines.find((l) => l.dish === 'Cola')!;
+    expect(cola.count).toBe(3);
+    expect(cola.total_cents).toBe(750);
+    expect(cola.unit_price_cents).toBe(250);
+    const pizza = agg.lines.find((l) => l.dish === 'Pizza')!;
+    expect(pizza.count).toBe(3);
+    expect(pizza.total_cents).toBe(2700);
+    const anna = agg.per_person.find((p) => p.user_name === 'Anna')!;
+    expect(anna.total_cents).toBe(500 + 2700);
+    expect(agg.grand_total_cents).toBe(500 + 250 + 2700);
+  });
+
+  it('applies the discount on quantity-weighted totals', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'A', price_cents: 100, quantity: 3 }),
+      makeItem({ id: 'i2aaaaaaaaaaaaaa', user_name: 'Ben', dish: 'B', price_cents: 100, quantity: 1 }),
+    ];
+    const agg = aggregateItems(items, 100);
+    expect(agg.per_person.find((p) => p.user_name === 'Anna')!.discount_cents).toBe(75);
+    expect(agg.per_person.find((p) => p.user_name === 'Ben')!.discount_cents).toBe(25);
   });
 
   it('gives unpriced-only people no discount', () => {

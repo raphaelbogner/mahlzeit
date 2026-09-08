@@ -51,7 +51,7 @@ function sessions_list(array $workspace): void
                 s.paid_by_user_id, s.paid_by_user_name, s.paid_by_iban,
                 s.discount_cents, s.discount_label,
                 (SELECT COUNT(*) FROM items i WHERE i.session_id = s.id) AS items_count,
-                (SELECT COALESCE(SUM(i.price_cents), 0) FROM items i WHERE i.session_id = s.id) AS total_cents,
+                (SELECT COALESCE(SUM(i.price_cents * i.quantity), 0) FROM items i WHERE i.session_id = s.id) AS total_cents,
                 (SELECT COUNT(*) FROM items i WHERE i.session_id = s.id AND i.price_cents IS NOT NULL) AS priced_count,
                 (SELECT COUNT(*) FROM items i WHERE i.session_id = s.id AND i.price_cents IS NOT NULL AND i.paid_at IS NOT NULL) AS paid_count
          FROM sessions s
@@ -368,7 +368,7 @@ function load_items(string $sessionId): array
 {
     $stmt = db()->prepare(
         'SELECT id, session_id, user_id, user_name, dish_id, dish, note,
-                price_cents, options_json, added_at, paid_at
+                price_cents, quantity, options_json, added_at, paid_at
          FROM items
          WHERE session_id = :sid
          ORDER BY added_at ASC, id ASC'
@@ -421,6 +421,7 @@ function format_item_row(array $row): array
         'dish'         => $row['dish'],
         'note'         => $row['note'],
         'price_cents'  => $row['price_cents'] === null ? null : (int)$row['price_cents'],
+        'quantity'     => isset($row['quantity']) ? max(1, (int)$row['quantity']) : 1,
         'options'      => $options,
         'added_at'     => $row['added_at'],
         'paid_at'      => $row['paid_at'] ?? null,

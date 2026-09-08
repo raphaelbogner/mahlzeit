@@ -534,3 +534,72 @@ X-Workspace-Token: {{token}}
 ### Missing/invalid user_id → 400 INVALID_FIELD
 GET {{host}}/api/sessions/{{sessionId}}/suggestions
 X-Workspace-Token: {{token}}
+
+### =====================================================================
+### Phase 2 – archive (migration 008)
+### =====================================================================
+
+### Archive a closed session (creator or effective payer)
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "archived": true
+}
+
+### Restore from archive
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "archived": false
+}
+
+### Archiving an open session → 409 SESSION_OPEN
+### Any GET also runs housekeeping: 30-day-old open sessions get closed,
+### sessions closed 30+ days ago with nothing left to pay get archived.
+GET {{host}}/api/sessions
+X-Workspace-Token: {{token}}
+
+### =====================================================================
+### Phase 2 – payment status (migration 009)
+### =====================================================================
+
+### List with per-person totals for the due overview
+GET {{host}}/api/sessions?user_id={{userId}}
+X-Workspace-Token: {{token}}
+
+### Orderer: "I transferred" for one item (closed session, not yet paid)
+PATCH {{host}}/api/sessions/{{sessionId}}/items/{{itemId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "reported": true
+}
+
+### Orderer: report all own unpaid items at once (reported=false takes it back)
+POST {{host}}/api/sessions/{{sessionId}}/items/report
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "reported": true
+}
+
+### Payer: confirm every item of one person as paid (paid=false resets, also clears "reported")
+POST {{host}}/api/sessions/{{sessionId}}/items/mark-paid
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{payerUserId}}",
+  "target_user_id": "{{userId}}",
+  "paid": true
+}

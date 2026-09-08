@@ -8,8 +8,13 @@ import type {
 } from '../types/api';
 import { apiRequest } from './client';
 
-export async function listSessions(signal?: AbortSignal): Promise<SessionSummary[]> {
-  const res = await apiRequest<SessionsListResponse>('/sessions', { signal });
+// With userId the server adds person_totals for closed sessions (due overview).
+export async function listSessions(
+  signal?: AbortSignal,
+  userId?: string,
+): Promise<SessionSummary[]> {
+  const path = userId ? `/sessions?user_id=${encodeURIComponent(userId)}` : '/sessions';
+  const res = await apiRequest<SessionsListResponse>(path, { signal });
   return res.sessions;
 }
 

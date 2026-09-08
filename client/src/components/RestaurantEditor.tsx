@@ -22,6 +22,7 @@ import type {
 } from '../types/api';
 import { DishEditor } from './DishEditor';
 import { ProfileMenu } from './ProfileMenu';
+import { DuePill } from './DuePill';
 import { DragHandle, SortableItem, SortableList } from './Sortable';
 import { useErrorToast, useToast } from './Toast';
 import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
@@ -326,6 +327,7 @@ export function RestaurantEditor() {
             ← Restaurants
           </WorkspaceLink>
           <div className="flex items-center gap-3">
+            <DuePill />
             <ProfileMenu />
             {!confirmingDelete ? (
               <button

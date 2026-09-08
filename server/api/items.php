@@ -23,6 +23,22 @@ function handle_items_route(string $method, array $segments, array $workspace, s
         return;
     }
 
+    // Bulk payment actions on all items of one person (see functions below).
+    if (count($segments) === 1 && $segments[0] === 'mark-paid') {
+        if ($method !== 'POST') {
+            error_response(405, 'METHOD_NOT_ALLOWED', 'Use POST on /sessions/{id}/items/mark-paid.');
+        }
+        items_mark_person_paid($session);
+        return;
+    }
+    if (count($segments) === 1 && $segments[0] === 'report') {
+        if ($method !== 'POST') {
+            error_response(405, 'METHOD_NOT_ALLOWED', 'Use POST on /sessions/{id}/items/report.');
+        }
+        items_report_own_payment($session);
+        return;
+    }
+
     if (count($segments) === 1) {
         $itemId = $segments[0];
         if (!is_valid_id($itemId)) {
@@ -255,11 +271,29 @@ function items_create_structured(
 function items_patch(array $session, string $itemId): void
 {
     $body = read_json_body();
-    reject_unknown_fields($body, ['user_id', 'dish', 'note', 'price_cents', 'quantity', 'paid']);
+    reject_unknown_fields($body, ['user_id', 'dish', 'note', 'price_cents', 'quantity', 'paid', 'reported']);
 
     $existing = load_item_or_404($session['id'], $itemId);
 
     $userId = require_string($body, 'user_id', 16, 16);
+
+    // 3) "I transferred the money" → item author, only when closed and not yet
+    //    confirmed as paid. The payer confirms via `paid`.
+    $touchesReported = array_key_exists('reported', $body);
+    if ($touchesReported) {
+        if (!is_bool($body['reported'])) {
+            error_response(400, 'INVALID_FIELD', 'Field reported must be a boolean.');
+        }
+        if ($session['status'] !== 'closed') {
+            error_response(409, 'SESSION_OPEN', 'Payments can only be reported once the session is closed.');
+        }
+        if ($userId !== $existing['user_id']) {
+            error_response(403, 'FORBIDDEN', 'Only the item author can report a payment.');
+        }
+        if ($existing['paid_at'] !== null) {
+            error_response(409, 'ALREADY_PAID', 'This item is already confirmed as paid.');
+        }
+    }
 
     // Two distinct edit modes share this endpoint:
     //   1) content edit (dish/note/price/quantity) → item author, only when session open;
@@ -324,7 +358,15 @@ function items_patch(array $session, string $itemId): void
             error_response(400, 'INVALID_FIELD', 'Field paid must be a boolean.');
         }
         // Use SQL CURRENT_TIMESTAMP for set, or NULL for unset. Not a placeholder.
-        $setParts[] = $paid ? 'paid_at = CURRENT_TIMESTAMP' : 'paid_at = NULL';
+        // Resetting to unpaid also clears a pending "reported" flag.
+        $setParts[] = $paid
+            ? 'paid_at = CURRENT_TIMESTAMP'
+            : 'paid_at = NULL, payment_reported_at = NULL';
+    }
+    if ($touchesReported) {
+        $setParts[] = $body['reported']
+            ? 'payment_reported_at = CURRENT_TIMESTAMP'
+            : 'payment_reported_at = NULL';
     }
 
     if (count($setParts) > 0) {
@@ -336,6 +378,67 @@ function items_patch(array $session, string $itemId): void
 
     $item = load_item_or_404($session['id'], $itemId);
     json_response(200, $item);
+}
+
+// POST /sessions/{id}/items/mark-paid { user_id, target_user_id, paid }
+// Payer marks (or un-marks) every priced item of one person in one go.
+function items_mark_person_paid(array $session): void
+{
+    $body = read_json_body();
+    reject_unknown_fields($body, ['user_id', 'target_user_id', 'paid']);
+
+    $userId   = require_string($body, 'user_id', 16, 16);
+    $targetId = require_string($body, 'target_user_id', 16, 16);
+    if (!is_valid_id($userId) || !is_valid_id($targetId)) {
+        error_response(400, 'INVALID_FIELD', 'user_id and target_user_id must be 16-char ids.');
+    }
+    if (!array_key_exists('paid', $body) || !is_bool($body['paid'])) {
+        error_response(400, 'INVALID_FIELD', 'Field paid must be a boolean.');
+    }
+    $effectivePayer = $session['paid_by_user_id'] ?? $session['creator_id'];
+    if ($userId !== $effectivePayer) {
+        error_response(403, 'FORBIDDEN', 'Only the effective payer can mark items as paid.');
+    }
+    if ($session['status'] !== 'closed') {
+        error_response(409, 'SESSION_OPEN', 'Payments can only be tracked once the session is closed.');
+    }
+
+    $sql = $body['paid']
+        ? 'UPDATE items SET paid_at = CURRENT_TIMESTAMP
+           WHERE session_id = :sid AND user_id = :uid AND price_cents IS NOT NULL AND paid_at IS NULL'
+        : 'UPDATE items SET paid_at = NULL, payment_reported_at = NULL
+           WHERE session_id = :sid AND user_id = :uid AND price_cents IS NOT NULL';
+    $stmt = db()->prepare($sql);
+    $stmt->execute([':sid' => $session['id'], ':uid' => $targetId]);
+
+    json_response(200, ['items' => load_items($session['id'])]);
+}
+
+// POST /sessions/{id}/items/report { user_id, reported }
+// Orderer reports "I transferred" for all their still-unpaid items.
+function items_report_own_payment(array $session): void
+{
+    $body = read_json_body();
+    reject_unknown_fields($body, ['user_id', 'reported']);
+
+    $userId = require_string($body, 'user_id', 16, 16);
+    if (!is_valid_id($userId)) {
+        error_response(400, 'INVALID_FIELD', 'Field user_id must be a 16-char id.');
+    }
+    if (!array_key_exists('reported', $body) || !is_bool($body['reported'])) {
+        error_response(400, 'INVALID_FIELD', 'Field reported must be a boolean.');
+    }
+    if ($session['status'] !== 'closed') {
+        error_response(409, 'SESSION_OPEN', 'Payments can only be reported once the session is closed.');
+    }
+
+    $stmt = db()->prepare(
+        'UPDATE items SET payment_reported_at = ' . ($body['reported'] ? 'CURRENT_TIMESTAMP' : 'NULL') . '
+         WHERE session_id = :sid AND user_id = :uid AND price_cents IS NOT NULL AND paid_at IS NULL'
+    );
+    $stmt->execute([':sid' => $session['id'], ':uid' => $userId]);
+
+    json_response(200, ['items' => load_items($session['id'])]);
 }
 
 function items_delete(array $session, string $itemId): void
@@ -365,7 +468,7 @@ function load_item_or_404(string $sessionId, string $itemId): array
 {
     $stmt = db()->prepare(
         'SELECT id, session_id, user_id, user_name, dish_id, dish, note,
-                price_cents, quantity, options_json, added_at, paid_at
+                price_cents, quantity, options_json, added_at, paid_at, payment_reported_at
          FROM items
          WHERE id = :id AND session_id = :sid
          LIMIT 1'

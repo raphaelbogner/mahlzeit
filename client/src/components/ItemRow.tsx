@@ -304,6 +304,11 @@ export function ItemRow({
               </span>
             )}
             {isPaid ? <span className="badge-success">bezahlt</span> : null}
+            {!isPaid && item.payment_reported_at !== null ? (
+              <span className="badge-info" title="Überweisung gemeldet, wartet auf Bestätigung">
+                gemeldet
+              </span>
+            ) : null}
           </p>
           {item.options && item.options.length > 0 && (
             <p className={'mt-0.5 text-sm text-stone-600 ' + strike}>

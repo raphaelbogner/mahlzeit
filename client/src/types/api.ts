@@ -21,6 +21,17 @@ export interface Item {
   options: ItemOptionSnapshot[] | null;
   added_at: string;
   paid_at: string | null;
+  // Set by the orderer ("I transferred"), cleared when the payer confirms/resets.
+  payment_reported_at: string | null;
+}
+
+// Per-person amounts of a closed session (list endpoint with ?user_id=).
+export interface PersonTotalRow {
+  user_id: string;
+  user_name: string;
+  total_cents: number;
+  unpaid_cents: number;
+  reported_cents: number;
 }
 
 export interface SessionSummary {
@@ -33,6 +44,9 @@ export interface SessionSummary {
   // ISO-8601 UTC ("...Z") or null.
   deadline_at: string | null;
   auto_closed: boolean;
+  // ISO-8601 UTC or null. archived_by_user_id is null for automatic archiving.
+  archived_at: string | null;
+  archived_by_user_id: string | null;
   creator_id: string;
   creator_name: string;
   creator_iban: string;
@@ -49,6 +63,8 @@ export interface SessionSummary {
   // List-only payment progress; null on the single-session endpoint.
   priced_items_count: number | null;
   paid_items_count: number | null;
+  // Only present when the list was requested with ?user_id=.
+  person_totals?: PersonTotalRow[];
 }
 
 export interface Session extends SessionSummary {
@@ -148,6 +164,7 @@ export interface UpdateSessionInput {
   paid_by_iban?: string;
   discount_cents?: number;
   discount_label?: string;
+  archived?: boolean;
 }
 
 export interface DeleteSessionInput {
@@ -181,6 +198,22 @@ export interface UpdateItemInput {
   price_cents?: number | null;
   quantity?: number;
   paid?: boolean;
+  reported?: boolean;
+}
+
+export interface MarkPersonPaidInput {
+  user_id: string;
+  target_user_id: string;
+  paid: boolean;
+}
+
+export interface ReportOwnPaymentInput {
+  user_id: string;
+  reported: boolean;
+}
+
+export interface ItemsResponse {
+  items: Item[];
 }
 
 export interface DeleteItemInput {

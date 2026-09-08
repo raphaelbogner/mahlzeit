@@ -14,12 +14,20 @@ echo "\nsessions.deadline_at / auto_closed:\n";
 foreach ($pdo->query("SHOW COLUMNS FROM sessions WHERE Field IN ('deadline_at','auto_closed')") as $r) {
     echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}  default=" . var_export($r['Default'], true) . "\n";
 }
+echo "\nsessions.archived_*:\n";
+foreach ($pdo->query("SHOW COLUMNS FROM sessions LIKE 'archived_%'") as $r) {
+    echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}\n";
+}
 echo "\nsessions.discount_*:\n";
 foreach ($pdo->query("SHOW COLUMNS FROM sessions LIKE 'discount_%'") as $r) {
     echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}  default=" . var_export($r['Default'], true) . "\n";
 }
 echo "\nitems.paid_at:\n";
 foreach ($pdo->query("SHOW COLUMNS FROM items LIKE 'paid_at'") as $r) {
+    echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}\n";
+}
+echo "\nitems.payment_reported_at:\n";
+foreach ($pdo->query("SHOW COLUMNS FROM items LIKE 'payment_reported_at'") as $r) {
     echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}\n";
 }
 echo "\nitems.quantity:\n";

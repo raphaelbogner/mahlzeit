@@ -2,10 +2,13 @@ import type { SessionSummary } from '../types/api';
 import { fmtPrice } from '../lib/price';
 import { WorkspaceLink } from './WorkspaceLink';
 import { DeadlineBadge } from './DeadlineBadge';
+import { computeMyDue } from '../lib/due';
 
 export interface SessionListProps {
   sessions: SessionSummary[];
   loading: boolean;
+  // Viewer id; enables the per-card "Dein Anteil" hint on closed sessions.
+  myUserId?: string;
 }
 
 function formatDate(iso: string): string {
@@ -19,7 +22,7 @@ function formatDate(iso: string): string {
   }).format(d);
 }
 
-export function SessionList({ sessions, loading }: SessionListProps) {
+export function SessionList({ sessions, loading, myUserId }: SessionListProps) {
   if (loading && sessions.length === 0) {
     return (
       <ul className="space-y-2.5" aria-busy="true">
@@ -47,6 +50,7 @@ export function SessionList({ sessions, loading }: SessionListProps) {
         // Payment progress is only meaningful once the order is closed.
         const showPaid = !isOpen && priced > 0;
         const allPaid = paid >= priced;
+        const myDue = myUserId ? computeMyDue(s, myUserId) : null;
         return (
           <li
             key={s.id}
@@ -61,6 +65,8 @@ export function SessionList({ sessions, loading }: SessionListProps) {
                     </h2>
                     {isOpen ? (
                       <span className="badge-success">offen</span>
+                    ) : s.archived_at !== null ? (
+                      <span className="badge-neutral">archiviert</span>
                     ) : (
                       <span className="badge-neutral">geschlossen</span>
                     )}
@@ -99,6 +105,15 @@ export function SessionList({ sessions, loading }: SessionListProps) {
                   {s.total_cents !== null && s.total_cents > 0 && (
                     <p className="text-xs text-stone-600 tabular-nums">{fmtPrice(s.total_cents)}</p>
                   )}
+                  {myDue && myDue.state === 'open' ? (
+                    <p className="mt-1 text-xs font-medium text-orange-700 tabular-nums">
+                      Dein Anteil: {fmtPrice(myDue.due_cents)} offen
+                    </p>
+                  ) : myDue && myDue.state === 'reported' ? (
+                    <p className="mt-1 text-xs text-amber-700">Überweisung gemeldet</p>
+                  ) : myDue && myDue.state === 'paid' ? (
+                    <p className="mt-1 text-xs text-emerald-700">✓ Dein Anteil bezahlt</p>
+                  ) : null}
                 </div>
               </div>
             </WorkspaceLink>

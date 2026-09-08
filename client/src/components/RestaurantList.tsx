@@ -4,6 +4,7 @@ import { ApiError } from '../api/client';
 import { createRestaurant } from '../api/restaurants';
 import { useRestaurants } from '../hooks/useRestaurants';
 import { ProfileMenu } from './ProfileMenu';
+import { DuePill } from './DuePill';
 import { useErrorToast, useToast } from './Toast';
 import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
 
@@ -51,6 +52,7 @@ export function RestaurantList() {
             ← Sammelbestellungen
           </WorkspaceLink>
           <div className="flex items-center gap-3">
+            <DuePill />
             <ProfileMenu />
             {!creating && (
               <button

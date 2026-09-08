@@ -12,7 +12,7 @@ export interface UseSessionsResult {
   refresh: () => void;
 }
 
-export function useSessions(): UseSessionsResult {
+export function useSessions(userId?: string): UseSessionsResult {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<ApiError | null>(null);
@@ -30,7 +30,7 @@ export function useSessions(): UseSessionsResult {
     const tick = async (isFirst: boolean) => {
       if (isFirst) setLoading(true);
       try {
-        const data = await listSessions(controller.signal);
+        const data = await listSessions(controller.signal, userId);
         if (cancelled) return;
         setSessions(data);
         hasData = true;
@@ -53,7 +53,7 @@ export function useSessions(): UseSessionsResult {
       controller.abort();
       window.clearInterval(interval);
     };
-  }, [refreshTick]);
+  }, [refreshTick, userId]);
 
   return { sessions, loading, error, refresh };
 }

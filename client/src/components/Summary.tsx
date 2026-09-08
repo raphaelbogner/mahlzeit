@@ -8,6 +8,7 @@ import type { Session } from '../types/api';
 import type { Profile } from '../hooks/useProfile';
 import { ApiError, getWorkspaceToken } from '../api/client';
 import { updateSession } from '../api/sessions';
+import { markPersonPaid, reportOwnPayment } from '../api/items';
 import { buildPaymentText, buildSessionUrl, copyText } from '../lib/share';
 import { useToast } from './Toast';
 import { PaymentQr } from './PaymentQr';
@@ -120,6 +121,61 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
 
   const isViewerPayer = profile.user_id === effectivePayerId;
 
+  // Payment position per displayed person (keyed like per_person, by name).
+  const payByName = useMemo(() => {
+    const map = new Map<
+      string,
+      { user_id: string; gross: number; unpaid: number; reported: number }
+    >();
+    for (const item of session.items) {
+      if (item.price_cents === null) continue;
+      const line = item.price_cents * item.quantity;
+      const entry = map.get(item.user_name) ?? {
+        user_id: item.user_id,
+        gross: 0,
+        unpaid: 0,
+        reported: 0,
+      };
+      entry.gross += line;
+      if (item.paid_at === null) {
+        entry.unpaid += line;
+        if (item.payment_reported_at !== null) entry.reported += line;
+      }
+      map.set(item.user_name, entry);
+    }
+    return map;
+  }, [session.items]);
+  const [payBusy, setPayBusy] = useState<boolean>(false);
+
+  async function handleMarkPerson(targetUserId: string, paid: boolean): Promise<void> {
+    setPayBusy(true);
+    try {
+      const items = await markPersonPaid(session.id, {
+        user_id: profile.user_id,
+        target_user_id: targetUserId,
+        paid,
+      });
+      onSessionChanged({ ...session, items });
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Aktion fehlgeschlagen.');
+    } finally {
+      setPayBusy(false);
+    }
+  }
+
+  async function handleReportOwn(reported: boolean): Promise<void> {
+    setPayBusy(true);
+    try {
+      const items = await reportOwnPayment(session.id, { user_id: profile.user_id, reported });
+      onSessionChanged({ ...session, items });
+      showInfo(reported ? 'Überweisung gemeldet.' : 'Meldung zurückgenommen.');
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Aktion fehlgeschlagen.');
+    } finally {
+      setPayBusy(false);
+    }
+  }
+
   async function handleCopy(): Promise<void> {
     const ok = await copyText(text, navigator, document);
     if (!ok) {
@@ -230,30 +286,84 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
 
       <div className="mb-4">
         <h3 className="h-card mb-2">Pro Person</h3>
-        <ul className="space-y-1">
-          {aggregate.per_person.map((p) => (
-            <li
-              key={p.user_name}
-              className="flex items-baseline justify-between gap-3 text-sm tabular-nums"
-            >
-              <span>
-                {p.user_name}
-                {p.has_unpriced_items && (
-                  <span className="ml-1 text-xs text-stone-500">(+ Einträge ohne Preis)</span>
-                )}
-              </span>
-              {hasDiscount && p.discount_cents > 0 ? (
-                <span>
-                  <span className="mr-1.5 text-stone-400 line-through">
-                    {fmtPrice(p.total_cents)}
+        <ul className="space-y-1.5">
+          {aggregate.per_person.map((p) => {
+            const pay = payByName.get(p.user_name);
+            const isMe = pay?.user_id === profile.user_id;
+            const settled = pay !== undefined && pay.gross > 0 && pay.unpaid === 0;
+            const reported = pay !== undefined && pay.unpaid > 0 && pay.reported > 0;
+            const showPayerControls =
+              isClosed && isViewerPayer && pay !== undefined && pay.gross > 0 && !isMe;
+            return (
+              <li key={p.user_name} className="text-sm tabular-nums">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    {showPayerControls ? (
+                      <input
+                        type="checkbox"
+                        checked={settled}
+                        disabled={payBusy}
+                        onChange={() => void handleMarkPerson(pay.user_id, !settled)}
+                        className="h-4 w-4 cursor-pointer rounded border-stone-300 accent-orange-500"
+                        aria-label={`${p.user_name} als ${settled ? 'unbezahlt' : 'bezahlt'} markieren`}
+                        title={settled ? 'Als unbezahlt markieren' : 'Alle Einträge als bezahlt markieren'}
+                      />
+                    ) : null}
+                    <span className="truncate">{p.user_name}</span>
+                    {p.has_unpriced_items && (
+                      <span className="text-xs text-stone-500">(+ Einträge ohne Preis)</span>
+                    )}
+                    {isClosed && settled ? <span className="badge-success">bezahlt</span> : null}
+                    {isClosed && !settled && reported ? (
+                      <span className="badge-info" title="Überweisung gemeldet, wartet auf Bestätigung">
+                        gemeldet
+                      </span>
+                    ) : null}
                   </span>
-                  <span className="font-medium text-stone-900">{fmtPrice(p.net_cents)}</span>
-                </span>
-              ) : (
-                <span className="font-medium text-stone-900">{fmtPrice(p.total_cents)}</span>
-              )}
-            </li>
-          ))}
+                  {hasDiscount && p.discount_cents > 0 ? (
+                    <span className="shrink-0">
+                      <span className="mr-1.5 text-stone-400 line-through">
+                        {fmtPrice(p.total_cents)}
+                      </span>
+                      <span className="font-medium text-stone-900">{fmtPrice(p.net_cents)}</span>
+                    </span>
+                  ) : (
+                    <span className="shrink-0 font-medium text-stone-900">
+                      {fmtPrice(p.total_cents)}
+                    </span>
+                  )}
+                </div>
+                {isClosed && isMe && !isViewerPayer && pay !== undefined && pay.gross > 0 && !settled ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {reported ? (
+                      <>
+                        <span className="text-xs text-amber-700">
+                          Überweisung gemeldet – wartet auf Bestätigung.
+                        </span>
+                        <button
+                          type="button"
+                          disabled={payBusy}
+                          onClick={() => void handleReportOwn(false)}
+                          className="btn-link text-xs"
+                        >
+                          Zurücknehmen
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={payBusy}
+                        onClick={() => void handleReportOwn(true)}
+                        className="btn-secondary btn-sm"
+                      >
+                        Ich habe überwiesen
+                      </button>
+                    )}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       </div>
 

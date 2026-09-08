@@ -3,7 +3,10 @@ import { useSessions } from '../hooks/useSessions';
 import { DESKTOP_QUERY, useMediaQuery } from '../hooks/useMediaQuery';
 import { CreateForm } from './CreateForm';
 import { SessionList } from './SessionList';
+import { ArchiveSection } from './ArchiveSection';
+import { splitArchived } from '../lib/archive';
 import { ProfileMenu } from './ProfileMenu';
+import { DuePill } from './DuePill';
 import { useErrorToast } from './Toast';
 import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
 import { ShareButton } from './ShareButton';
@@ -17,12 +20,13 @@ export interface SessionsPageProps {
 
 export function SessionsPage({ profile }: SessionsPageProps) {
   const navigate = useWorkspaceNavigate();
-  const { sessions, loading, error, refresh } = useSessions();
+  const { sessions, loading, error, refresh } = useSessions(profile.user_id);
   useErrorToast(error);
   const [creating, setCreating] = useState<boolean>(false);
   // Desktop keeps the create form permanently open in the side column;
   // mobile toggles it inline. Rendered exactly once either way.
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const { active, archived } = splitArchived(sessions);
 
   const createForm = (
     <CreateForm
@@ -58,6 +62,7 @@ export function SessionsPage({ profile }: SessionsPageProps) {
               }
               className="btn-link text-sm"
             />
+            <DuePill sessions={sessions} />
             <ProfileMenu />
           </div>
         </div>
@@ -91,7 +96,8 @@ export function SessionsPage({ profile }: SessionsPageProps) {
               )
             ) : null}
 
-            <SessionList sessions={sessions} loading={loading} />
+            <SessionList sessions={active} loading={loading} myUserId={profile.user_id} />
+            <ArchiveSection sessions={archived} myUserId={profile.user_id} />
           </div>
 
           {isDesktop ? <aside className="layout-side">{createForm}</aside> : null}

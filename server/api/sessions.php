@@ -44,11 +44,11 @@ function handle_sessions_route(string $method, array $segments, array $workspace
 
 function sessions_list(array $workspace): void
 {
-    auto_close_due_sessions((int)$workspace['id']);
+    apply_housekeeping((int)$workspace['id']);
 
     $stmt = db()->prepare(
         'SELECT s.id, s.title, s.restaurant_id, s.restaurant_name, s.deadline,
-                s.deadline_at, s.auto_closed,
+                s.deadline_at, s.auto_closed, s.archived_at, s.archived_by_user_id,
                 s.creator_id, s.creator_name, s.creator_iban, s.status,
                 s.created_at, s.closed_at,
                 s.paid_by_user_id, s.paid_by_user_name, s.paid_by_iban,
@@ -63,7 +63,49 @@ function sessions_list(array $workspace): void
     );
     $stmt->execute([':wid' => $workspace['id']]);
     $rows = array_map('format_session_row', $stmt->fetchAll());
+
+    // With ?user_id= the client also gets per-person totals for closed
+    // sessions, so it can compute "what do I still owe" (including the exact
+    // discount share) with the same logic as the summary view.
+    $viewer = $_GET['user_id'] ?? null;
+    if (is_string($viewer) && is_valid_id($viewer)) {
+        $totals = load_person_totals((int)$workspace['id']);
+        foreach ($rows as &$row) {
+            $row['person_totals'] = $totals[$row['id']] ?? [];
+        }
+        unset($row);
+    }
+
     json_response(200, ['sessions' => $rows]);
+}
+
+// session_id → [{ user_id, user_name, total_cents, unpaid_cents, reported_cents }]
+// for closed sessions with priced items. Amounts are quantity-weighted.
+function load_person_totals(int $workspaceId): array
+{
+    $stmt = db()->prepare(
+        'SELECT i.session_id, i.user_id, MAX(i.user_name) AS user_name,
+                SUM(i.price_cents * i.quantity) AS total_cents,
+                SUM(CASE WHEN i.paid_at IS NULL THEN i.price_cents * i.quantity ELSE 0 END) AS unpaid_cents,
+                SUM(CASE WHEN i.paid_at IS NULL AND i.payment_reported_at IS NOT NULL
+                         THEN i.price_cents * i.quantity ELSE 0 END) AS reported_cents
+         FROM items i
+         JOIN sessions s ON s.id = i.session_id
+         WHERE s.workspace_id = :wid AND s.status = "closed" AND i.price_cents IS NOT NULL
+         GROUP BY i.session_id, i.user_id'
+    );
+    $stmt->execute([':wid' => $workspaceId]);
+    $out = [];
+    foreach ($stmt->fetchAll() as $r) {
+        $out[$r['session_id']][] = [
+            'user_id'        => $r['user_id'],
+            'user_name'      => (string)$r['user_name'],
+            'total_cents'    => (int)$r['total_cents'],
+            'unpaid_cents'   => (int)$r['unpaid_cents'],
+            'reported_cents' => (int)$r['reported_cents'],
+        ];
+    }
+    return $out;
 }
 
 function sessions_create(array $workspace): void
@@ -162,7 +204,7 @@ function sessions_patch(array $workspace, string $id): void
         'restaurant_id', 'restaurant_name',
         'deadline', 'deadline_at', 'creator_iban', 'status',
         'paid_by_user_id', 'paid_by_user_name', 'paid_by_iban',
-        'discount_cents', 'discount_label',
+        'discount_cents', 'discount_label', 'archived',
     ]);
 
     $session = load_session_or_404($workspace, $id);
@@ -211,6 +253,24 @@ function sessions_patch(array $workspace, string $id): void
         if ($session['status'] !== 'closed') {
             error_response(409, 'SESSION_OPEN', 'A discount can only be set once the session is closed.');
         }
+    }
+
+    // Archiving: creator or effective payer, only for closed sessions. Un-
+    // archiving is allowed for the same people at any time.
+    $archiveChange = null;
+    if (array_key_exists('archived', $body)) {
+        $val = $body['archived'];
+        if (!is_bool($val)) {
+            error_response(400, 'INVALID_FIELD', 'Field archived must be a boolean.');
+        }
+        $effectivePayerId = $session['paid_by_user_id'] ?? $session['creator_id'];
+        if (!$isCreator && $userId !== $effectivePayerId) {
+            error_response(403, 'FORBIDDEN', 'Only the creator or the payer can archive a session.');
+        }
+        if ($val && $session['status'] !== 'closed') {
+            error_response(409, 'SESSION_OPEN', 'Only closed sessions can be archived.');
+        }
+        $archiveChange = $val;
     }
 
     $updates = [];
@@ -307,7 +367,7 @@ function sessions_patch(array $workspace, string $id): void
         $updates['discount_label'] = optional_string($body, 'discount_label', 120);
     }
 
-    if (count($updates) === 0) {
+    if (count($updates) === 0 && $archiveChange === null) {
         // Nothing to update — return current state.
         sessions_get($workspace, $id);
         return;
@@ -317,6 +377,14 @@ function sessions_patch(array $workspace, string $id): void
     foreach ($updates as $col => $val) {
         $setParts[]    = "{$col} = :{$col}";
         $params[":{$col}"] = $val;
+    }
+    if ($archiveChange === true) {
+        $setParts[] = 'archived_at = CURRENT_TIMESTAMP';
+        $setParts[] = 'archived_by_user_id = :archived_by';
+        $params[':archived_by'] = $userId;
+    } elseif ($archiveChange === false) {
+        $setParts[] = 'archived_at = NULL';
+        $setParts[] = 'archived_by_user_id = NULL';
     }
     if (array_key_exists('status', $updates)) {
         if ($updates['status'] === 'closed') {
@@ -364,11 +432,11 @@ function sessions_delete(array $workspace, string $id): void
 
 function load_session_or_404(array $workspace, string $id): array
 {
-    auto_close_due_sessions((int)$workspace['id']);
+    apply_housekeeping((int)$workspace['id']);
 
     $stmt = db()->prepare(
         'SELECT id, workspace_id, title, restaurant_id, restaurant_name, deadline,
-                deadline_at, auto_closed,
+                deadline_at, auto_closed, archived_at, archived_by_user_id,
                 creator_id, creator_name, creator_iban, status, created_at, closed_at,
                 paid_by_user_id, paid_by_user_name, paid_by_iban,
                 discount_cents, discount_label
@@ -388,7 +456,7 @@ function load_items(string $sessionId): array
 {
     $stmt = db()->prepare(
         'SELECT id, session_id, user_id, user_name, dish_id, dish, note,
-                price_cents, quantity, options_json, added_at, paid_at
+                price_cents, quantity, options_json, added_at, paid_at, payment_reported_at
          FROM items
          WHERE session_id = :sid
          ORDER BY added_at ASC, id ASC'
@@ -407,6 +475,8 @@ function format_session_row(array $row): array
         'deadline'          => $row['deadline'],
         'deadline_at'       => format_utc_datetime($row['deadline_at'] ?? null),
         'auto_closed'       => (bool)($row['auto_closed'] ?? 0),
+        'archived_at'       => format_utc_datetime($row['archived_at'] ?? null),
+        'archived_by_user_id' => $row['archived_by_user_id'] ?? null,
         'creator_id'        => $row['creator_id'],
         'creator_name'      => $row['creator_name'],
         'creator_iban'      => $row['creator_iban'],
@@ -425,9 +495,38 @@ function format_session_row(array $row): array
     ];
 }
 
-// Lazy auto-close: any read or write in a workspace first closes sessions
-// whose deadline has passed. The DB session runs in UTC (see shared/db.php),
-// so CURRENT_TIMESTAMP compares correctly with the UTC deadline_at values.
+// Lazy housekeeping, run before every read/write in a workspace (no cron):
+//   1. close sessions whose deadline passed (flagged auto_closed)
+//   2. close sessions that have been open for 30 days (forgotten)
+//   3. archive sessions closed 30+ days ago with nothing left to pay
+// The DB session runs in UTC (see shared/db.php), so CURRENT_TIMESTAMP
+// compares correctly with the stored UTC values.
+function apply_housekeeping(int $workspaceId): void
+{
+    auto_close_due_sessions($workspaceId);
+
+    $stale = db()->prepare(
+        'UPDATE sessions
+         SET status = "closed", closed_at = CURRENT_TIMESTAMP, auto_closed = 1
+         WHERE workspace_id = :wid AND status = "open"
+           AND created_at <= CURRENT_TIMESTAMP - INTERVAL 30 DAY'
+    );
+    $stale->execute([':wid' => $workspaceId]);
+
+    $archive = db()->prepare(
+        'UPDATE sessions s
+         SET s.archived_at = CURRENT_TIMESTAMP, s.archived_by_user_id = NULL
+         WHERE s.workspace_id = :wid AND s.status = "closed" AND s.archived_at IS NULL
+           AND s.closed_at IS NOT NULL
+           AND s.closed_at <= CURRENT_TIMESTAMP - INTERVAL 30 DAY
+           AND NOT EXISTS (
+               SELECT 1 FROM items i
+               WHERE i.session_id = s.id AND i.price_cents IS NOT NULL AND i.paid_at IS NULL
+           )'
+    );
+    $archive->execute([':wid' => $workspaceId]);
+}
+
 function auto_close_due_sessions(int $workspaceId): void
 {
     $stmt = db()->prepare(
@@ -493,5 +592,6 @@ function format_item_row(array $row): array
         'options'      => $options,
         'added_at'     => $row['added_at'],
         'paid_at'      => $row['paid_at'] ?? null,
+        'payment_reported_at' => $row['payment_reported_at'] ?? null,
     ];
 }

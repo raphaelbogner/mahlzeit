@@ -6,6 +6,7 @@ import { useErrorToast, useToast } from './Toast';
 import { AddItemForm } from './AddItemForm';
 import { ItemRow } from './ItemRow';
 import { ProfileMenu } from './ProfileMenu';
+import { DuePill } from './DuePill';
 import { Summary } from './Summary';
 import { DeadlineBadge } from './DeadlineBadge';
 import { DeadlinePicker } from './DeadlinePicker';
@@ -19,6 +20,7 @@ import type { Item, Session } from '../types/api';
 import { fmtPrice } from '../lib/price';
 import { formatIban } from '../lib/iban';
 import { parseDeadline } from '../lib/deadline';
+import { hasOpenDues } from '../lib/archive';
 
 export interface SessionDetailProps {
   profile: Profile;
@@ -43,6 +45,7 @@ export function SessionDetail({ profile }: SessionDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState<boolean>(false);
   const [editingDeadline, setEditingDeadline] = useState<boolean>(false);
   const [deadlineDraft, setDeadlineDraft] = useState<Date | null>(null);
+  const [confirmingArchive, setConfirmingArchive] = useState<boolean>(false);
 
   // Once the countdown hits zero the server closes the session on its next
   // request; poll immediately so the UI flips without waiting for the timer.
@@ -90,6 +93,8 @@ export function SessionDetail({ profile }: SessionDetailProps) {
   const isOpen = session.status === 'open';
   const isCreator = session.creator_id === profile.user_id;
   const effectivePayerId = session.paid_by_user_id ?? session.creator_id;
+  const isArchived = session.archived_at !== null;
+  const canArchive = isCreator || profile.user_id === effectivePayerId;
 
   function handleItemAdded(item: Item): void {
     if (!session) return;
@@ -123,6 +128,31 @@ export function SessionDetail({ profile }: SessionDetailProps) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleArchive(archived: boolean): Promise<void> {
+    if (!session) return;
+    setBusy(true);
+    try {
+      const next = await updateSession(session.id, { user_id: profile.user_id, archived });
+      setSession({ ...next, items: session.items });
+      setConfirmingArchive(false);
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Aktion fehlgeschlagen.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function requestArchive(): void {
+    if (!session) return;
+    // Ask first when money is still outstanding; archiving hides it from the
+    // due overview.
+    if (hasOpenDues(session.items)) {
+      setConfirmingArchive(true);
+      return;
+    }
+    void handleArchive(true);
   }
 
   function startEditDeadline(): void {
@@ -172,7 +202,10 @@ export function SessionDetail({ profile }: SessionDetailProps) {
           <WorkspaceLink to="/" className="btn-link">
             ← Sammelbestellungen
           </WorkspaceLink>
-          <ProfileMenu />
+          <div className="flex items-center gap-3">
+            <DuePill />
+            <ProfileMenu />
+          </div>
         </div>
       </header>
 
@@ -186,6 +219,8 @@ export function SessionDetail({ profile }: SessionDetailProps) {
                 <h1 className="h-page truncate">{session.title}</h1>
                 {isOpen ? (
                   <span className="badge-success">offen</span>
+                ) : isArchived ? (
+                  <span className="badge-neutral">archiviert</span>
                 ) : (
                   <span className="badge-neutral">geschlossen</span>
                 )}
@@ -265,6 +300,47 @@ export function SessionDetail({ profile }: SessionDetailProps) {
                   }
                 />
               ) : null}
+            {!isOpen && canArchive ? (
+              isArchived ? (
+                <button
+                  type="button"
+                  onClick={() => void handleArchive(false)}
+                  disabled={busy}
+                  className="btn-secondary btn-sm"
+                >
+                  Wiederherstellen
+                </button>
+              ) : confirmingArchive ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-stone-700">Noch Beträge offen – trotzdem?</span>
+                  <button
+                    type="button"
+                    onClick={() => void handleArchive(true)}
+                    disabled={busy}
+                    className="btn-warn-soft btn-sm"
+                  >
+                    Archivieren
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingArchive(false)}
+                    disabled={busy}
+                    className="btn-secondary btn-sm"
+                  >
+                    Nein
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={requestArchive}
+                  disabled={busy}
+                  className="btn-secondary btn-sm"
+                >
+                  Archivieren
+                </button>
+              )
+            ) : null}
             {isCreator && (
               <>
                 <button

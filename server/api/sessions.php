@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../shared/db.php';
 require_once __DIR__ . '/../shared/ids.php';
 require_once __DIR__ . '/../shared/iban.php';
+require_once __DIR__ . '/../shared/push.php';
 require_once __DIR__ . '/http.php';
 
 // Dispatcher for /api/sessions[/{id}]
@@ -168,6 +169,14 @@ function sessions_create(array $workspace): void
         ':cid'      => $userId,
         ':cname'    => $userName,
         ':iban'     => $iban,
+    ]);
+
+    notify_session_created($workspace, [
+        'id'              => $id,
+        'title'           => $title,
+        'restaurant_name' => $restaurantName,
+        'deadline_at'     => $deadlineAt,
+        'creator_id'      => $userId,
     ]);
 
     sessions_get($workspace, $id, 201);
@@ -414,6 +423,10 @@ function sessions_patch(array $workspace, string $id): void
     $stmt = db()->prepare($sql);
     $stmt->execute($params);
 
+    if (($updates['status'] ?? null) === 'closed' && $session['status'] !== 'closed') {
+        notify_session_closed((int)$workspace['id'], $id);
+    }
+
     sessions_get($workspace, $id);
 }
 
@@ -511,13 +524,24 @@ function apply_housekeeping(int $workspaceId): void
 {
     auto_close_due_sessions($workspaceId);
 
-    $stale = db()->prepare(
-        'UPDATE sessions
-         SET status = "closed", closed_at = CURRENT_TIMESTAMP, auto_closed = 1
+    $staleIds = select_ids(
+        'SELECT id FROM sessions
          WHERE workspace_id = :wid AND status = "open"
-           AND created_at <= CURRENT_TIMESTAMP - INTERVAL 30 DAY'
+           AND created_at <= CURRENT_TIMESTAMP - INTERVAL 30 DAY',
+        [':wid' => $workspaceId]
     );
-    $stale->execute([':wid' => $workspaceId]);
+    if ($staleIds !== []) {
+        $stale = db()->prepare(
+            'UPDATE sessions
+             SET status = "closed", closed_at = CURRENT_TIMESTAMP, auto_closed = 1
+             WHERE workspace_id = :wid AND status = "open"
+               AND created_at <= CURRENT_TIMESTAMP - INTERVAL 30 DAY'
+        );
+        $stale->execute([':wid' => $workspaceId]);
+        foreach ($staleIds as $sid) {
+            notify_session_closed($workspaceId, $sid);
+        }
+    }
 
     $archive = db()->prepare(
         'UPDATE sessions s
@@ -535,6 +559,15 @@ function apply_housekeeping(int $workspaceId): void
 
 function auto_close_due_sessions(int $workspaceId): void
 {
+    $dueIds = select_ids(
+        'SELECT id FROM sessions
+         WHERE workspace_id = :wid AND status = "open"
+           AND deadline_at IS NOT NULL AND deadline_at <= CURRENT_TIMESTAMP',
+        [':wid' => $workspaceId]
+    );
+    if ($dueIds === []) {
+        return;
+    }
     $stmt = db()->prepare(
         'UPDATE sessions
          SET status = "closed", closed_at = deadline_at, auto_closed = 1
@@ -542,6 +575,16 @@ function auto_close_due_sessions(int $workspaceId): void
            AND deadline_at IS NOT NULL AND deadline_at <= CURRENT_TIMESTAMP'
     );
     $stmt->execute([':wid' => $workspaceId]);
+    foreach ($dueIds as $sid) {
+        notify_session_closed($workspaceId, $sid);
+    }
+}
+
+function select_ids(string $sql, array $params): array
+{
+    $stmt = db()->prepare($sql);
+    $stmt->execute($params);
+    return array_map(static fn(array $r): string => (string)$r['id'], $stmt->fetchAll());
 }
 
 // deadline_at arrives as ISO-8601 (with offset or Z) or null. Returns a UTC

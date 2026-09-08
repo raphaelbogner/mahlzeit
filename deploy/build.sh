@@ -70,9 +70,21 @@ if [ -d "${ROOT}/server/migrations" ]; then
   done
 fi
 
+# Push: cron scripts + composer deps (vendor/ exists only after
+# `composer install` in server/; without it push stays disabled).
+cp -R "${ROOT}/server/cron" "${OUTPUT}/cron"
+cp "${ROOT}/server/composer.json" "${OUTPUT}/composer.json"
+if [ -d "${ROOT}/server/vendor" ]; then
+  cp -R "${ROOT}/server/vendor" "${OUTPUT}/vendor"
+fi
+
 step "Writing combined .htaccess"
 cat > "${OUTPUT}/.htaccess" <<'HTACCESS'
 RewriteEngine On
+
+# Never serve cron scripts, composer files or vendor code over HTTP.
+RewriteRule ^(cron|vendor)/ - [F,L]
+RewriteRule ^composer.(json|lock)$ - [F,L]
 
 # Admin-API to admin PHP front controller.
 RewriteRule ^admin/api/(.*)$ admin-api/index.php [QSA,L]

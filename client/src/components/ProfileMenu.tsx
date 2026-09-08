@@ -5,6 +5,7 @@ import { cleanIban, formatIban, isValidIban } from '../lib/iban';
 import { useProfile } from '../hooks/useProfile';
 import { useToast } from './Toast';
 import { BackupPanel } from './BackupPanel';
+import { PushToggle } from './PushToggle';
 
 export function ProfileMenu() {
   const { profile, updateProfile } = useProfile();
@@ -171,6 +172,10 @@ function EditProfileDialog({
               {errors.iban}
             </p>
           )}
+        </div>
+
+        <div className="mt-6 border-t border-stone-200 pt-5">
+          <PushToggle />
         </div>
 
         <div className="mt-6 border-t border-stone-200 pt-5">

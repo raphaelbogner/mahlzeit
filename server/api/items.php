@@ -6,6 +6,7 @@ require_once __DIR__ . '/../shared/ids.php';
 require_once __DIR__ . '/http.php';
 require_once __DIR__ . '/sessions.php'; // for load_session_or_404, format_item_row
 require_once __DIR__ . '/participation.php'; // for clear_decline
+require_once __DIR__ . '/../shared/push.php';   // for notify_payment_confirmed
 
 // Dispatcher for /api/sessions/{sid}/items[/{itemId}]. POST accepts both
 // freitext (dish + optional price) and structured (dish_id + option_ids)
@@ -383,6 +384,10 @@ function items_patch(array $session, string $itemId): void
         $stmt->execute($params);
     }
 
+    if ($touchesPaid && $body['paid'] === true && $existing['paid_at'] === null) {
+        notify_payment_confirmed($session, $existing['user_id']);
+    }
+
     $item = load_item_or_404($session['id'], $itemId);
     json_response(200, $item);
 }
@@ -417,6 +422,10 @@ function items_mark_person_paid(array $session): void
            WHERE session_id = :sid AND user_id = :uid AND price_cents IS NOT NULL';
     $stmt = db()->prepare($sql);
     $stmt->execute([':sid' => $session['id'], ':uid' => $targetId]);
+
+    if ($body['paid'] && $stmt->rowCount() > 0) {
+        notify_payment_confirmed($session, $targetId);
+    }
 
     json_response(200, ['items' => load_items($session['id'])]);
 }

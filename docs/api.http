@@ -635,3 +635,41 @@ Content-Type: application/json
 ### Session GET with my_declined flag
 GET {{host}}/api/sessions/{{sessionId}}?user_id={{userId}}
 X-Workspace-Token: {{token}}
+
+### =====================================================================
+### Phase 3 – push (migration 011, see docs/PUSH_SETUP.md)
+### =====================================================================
+
+### Is push configured? (enabled=false until config.php has a push section)
+GET {{host}}/api/push/config
+X-Workspace-Token: {{token}}
+
+### Register this device (payload as produced by PushSubscription.toJSON())
+PUT {{host}}/api/push/subscription
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "endpoint": "https://fcm.googleapis.com/fcm/send/example",
+  "keys": { "p256dh": "BExample…", "auth": "authExample" },
+  "user_agent": "manual test"
+}
+
+### Unregister
+DELETE {{host}}/api/push/subscription
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/example"
+}
+
+### Queue + deliver a test notification to my own devices
+POST {{host}}/api/push/test
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}"
+}

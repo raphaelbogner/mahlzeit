@@ -49,3 +49,20 @@ was entschieden wurde, warum, und wo man es ändert.
 - **Hinweiskarte „Kurz einrichten“** erscheint im Detail, sobald man selbst
   einen Eintrag hat; einmal wegklickbar. Enthält Backup + Installieren (und ab
   3b Benachrichtigungen).
+
+## Phase 3b (Push)
+
+- **Push ist deployt, aber inaktiv**, bis `config.php` einen `push`-Abschnitt hat
+  (VAPID-Schlüssel). Anleitung inkl. Hosting-Check: `docs/PUSH_SETUP.md`.
+- **Nicht lokal verifizierbar** (kein PHP/Composer hier): `shared/push.php`,
+  `api/push.php`, `cron/push_tick.php` sind gegen die dokumentierte API von
+  `minishlink/web-push` ^9 geschrieben und per Review geprüft. Erster echter
+  Test = Schritt 6 in `PUSH_SETUP.md`.
+- **Versand nur per Cron** (Outbox). Ausnahme: die Testnachricht aus dem
+  Profilmenü wird sofort zugestellt.
+- **Bestellschluss-Warnung** trifft bei Minuten-Cron exakt 15 min vorher,
+  bei 5-Minuten-Cron bis zu 5 min früher.
+- **Zeitzone** für Uhrzeiten in Push-Texten: `push.timezone` in `config.php`
+  (Standard `Europe/Vienna`).
+- **Erinnerung „noch offen“** kommt einmalig 3 Tage nach dem Schließen, nur für
+  Einträge, die weder bezahlt noch gemeldet sind.

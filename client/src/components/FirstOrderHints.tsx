@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BackupPanel } from './BackupPanel';
+import { PushToggle } from './PushToggle';
 
 const DISMISS_KEY = 'mahlzeit.hints.firstorder.v1';
 
@@ -82,6 +83,10 @@ export function FirstOrderHints() {
       </div>
 
       <BackupPanel compact />
+
+      <div className="border-t border-stone-200 pt-4">
+        <PushToggle />
+      </div>
 
       {!installed ? (
         <div className="border-t border-stone-200 pt-4">

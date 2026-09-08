@@ -40,6 +40,12 @@ foreach ($pdo->query("SHOW TABLES LIKE 'session_declines'") as $r) {
     $cnt = (int)$pdo->query("SELECT COUNT(*) FROM `{$name}`")->fetchColumn();
     echo "  - {$name}  rows={$cnt}\n";
 }
+echo "\npush tables:\n";
+foreach ($pdo->query("SHOW TABLES LIKE 'push_%'") as $r) {
+    $name = array_values($r)[0];
+    $cnt = (int)$pdo->query("SELECT COUNT(*) FROM `{$name}`")->fetchColumn();
+    echo "  - {$name}  rows={$cnt}\n";
+}
 echo "\noption_group_template* tables:\n";
 foreach ($pdo->query("SHOW TABLES LIKE 'option_group_template%'") as $r) {
     $name = array_values($r)[0];

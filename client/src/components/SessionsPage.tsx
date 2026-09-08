@@ -8,10 +8,8 @@ import { splitArchived } from '../lib/archive';
 import { ProfileMenu } from './ProfileMenu';
 import { DuePill } from './DuePill';
 import { useErrorToast } from './Toast';
-import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
-import { ShareButton } from './ShareButton';
-import { getWorkspaceToken } from '../api/client';
-import { buildWorkspaceInviteText, buildWorkspaceUrl } from '../lib/share';
+import { useWorkspaceNavigate } from './WorkspaceLink';
+import { HeaderNav } from './HeaderNav';
 import type { Profile } from '../hooks/useProfile';
 
 export interface SessionsPageProps {
@@ -52,23 +50,8 @@ export function SessionsPage({ profile }: SessionsPageProps) {
             />
             <span>Mahlzeit</span>
           </div>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
-            <WorkspaceLink to="/restaurants" className="btn-link">
-              Restaurants
-            </WorkspaceLink>
-            <WorkspaceLink to="/statistik" className="btn-link">
-              Statistik
-            </WorkspaceLink>
-            <ShareButton
-              label="Teilen"
-              title="Mahlzeit-Workspace"
-              getText={() =>
-                buildWorkspaceInviteText(
-                  buildWorkspaceUrl(getWorkspaceToken() ?? '', window.location.origin),
-                )
-              }
-              className="btn-link text-sm"
-            />
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <HeaderNav />
             <DuePill sessions={sessions} />
             <ProfileMenu />
           </div>

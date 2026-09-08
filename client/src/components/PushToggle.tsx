@@ -46,7 +46,23 @@ export function PushToggle() {
     };
   }, []);
 
-  if (!profile || state === 'loading' || state === 'unsupported' || !pushSupported()) return null;
+  if (!profile || state === 'loading' || state === 'unsupported') return null;
+
+  // iOS Safari only exposes push inside an installed (home screen) app.
+  // Say so instead of silently hiding the setting.
+  if (!pushSupported()) {
+    if (!isIosBrowserTab()) return null;
+    return (
+      <div>
+        <p className="text-sm font-semibold text-stone-900">Benachrichtigungen</p>
+        <p className="mt-1 text-xs text-stone-600">
+          Auf dem iPhone gibt es Benachrichtigungen nur in der installierten App: In Safari unten
+          auf <span className="font-medium">Teilen</span> tippen, dann{' '}
+          <span className="font-medium">„Zum Home-Bildschirm“</span>. Danach hier einschalten.
+        </p>
+      </div>
+    );
+  }
 
   async function toggle(): Promise<void> {
     if (!publicKey || !profile) return;

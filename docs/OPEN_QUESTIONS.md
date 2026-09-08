@@ -66,3 +66,31 @@ was entschieden wurde, warum, und wo man es ändert.
   (Standard `Europe/Vienna`).
 - **Erinnerung „noch offen“** kommt einmalig 3 Tage nach dem Schließen, nur für
   Einträge, die weder bezahlt noch gemeldet sind.
+
+## Phase 4 (Favoriten, Statistik)
+
+- **Schnellauswahl** zeigt maximal 6 Karten (Favoriten zuerst, dann letzte
+  Bestellungen). Konstante `MAX_QUICK_PICKS` in `lib/quickPicks.ts`.
+- **Favorit mit Optionsgruppen** öffnet den Picker mit Standardauswahl statt
+  direkt hinzuzufügen (Preis zeigt „ab …“).
+- **Statistik „Ausgaben pro Person“** ist *vor* Rabatt (Rabatte sind
+  Session-Geschenke und werden dort nicht pro Person umgelegt); Gesamt- und
+  Restaurant-Ausgaben sind *nach* Rabatt. Falls störend: `stats.php`.
+- **Statistik zählt nur geschlossene Sessions**, offene fließen nirgends ein.
+- **Link „Statistik“** nur im Header der Startseite (Restaurant-Seiten haben
+  weiterhin nur den Zurück-Link).
+
+## Deploy-Checkliste (alle Phasen)
+
+1. Migrationen in Reihenfolge per phpMyAdmin: `005` … `012`
+   (`server/migrations/*.sql`, alle idempotent).
+2. `deploy/build.sh`, Inhalt von `deploy/output/` hochladen.
+3. Push optional: `docs/PUSH_SETUP.md` (Composer, VAPID, Cron).
+4. Nach dem ersten Aufruf prüfen: Auto-Close/Archiv greifen beim ersten
+   Request, Header-Pille erscheint nur bei offenen Beträgen.
+
+## Bekannte Altlasten (nicht angefasst)
+
+- 5 bestehende ESLint-Fehler (`react-refresh/only-export-components` in
+  `Toast.tsx`, `WorkspaceLink.tsx`, `useProfile.tsx`; `set-state-in-effect`
+  in `useProfile.tsx`). Waren vor dieser Arbeit da, blockieren nichts.

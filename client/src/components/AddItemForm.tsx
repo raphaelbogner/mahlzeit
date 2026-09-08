@@ -8,8 +8,9 @@ import type { Dish, Item } from '../types/api';
 import type { Profile } from '../hooks/useProfile';
 import { DishPicker } from './DishPicker';
 import { QuantityStepper } from './QuantityStepper';
-import { ReorderSuggestions } from './ReorderSuggestions';
+import { QuickPicks } from './QuickPicks';
 import { useSuggestions } from '../hooks/useSuggestions';
+import { useFavorites } from '../hooks/useFavorites';
 import type { DishPrefill } from '../lib/suggestions';
 import { useToast } from './Toast';
 
@@ -34,6 +35,7 @@ export function AddItemForm({
   const [forceFreitext, setForceFreitext] = useState<boolean>(false);
   const [prefill, setPrefill] = useState<DishPrefill | null>(null);
   const { suggestions } = useSuggestions(sessionId, profile.user_id, restaurantId);
+  const { favoriteIds, toggle: toggleFavorite } = useFavorites(restaurantId, profile.user_id);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,12 +98,13 @@ export function AddItemForm({
         </div>
       )}
 
-      {restaurantId !== null && !menuLoading && suggestions.length > 0 ? (
-        <ReorderSuggestions
+      {restaurantId !== null && !menuLoading && (suggestions.length > 0 || favoriteIds.size > 0) ? (
+        <QuickPicks
           sessionId={sessionId}
           profile={profile}
           dishes={dishes ?? []}
           suggestions={suggestions}
+          favoriteIds={favoriteIds}
           onAdded={onAdded}
           onPrefill={(next) => {
             setForceFreitext(false);
@@ -121,6 +124,8 @@ export function AddItemForm({
           }}
           disabled={disabled}
           prefill={prefill}
+          favoriteIds={favoriteIds}
+          onToggleFavorite={toggleFavorite}
         />
       ) : (
         <FreitextItemForm

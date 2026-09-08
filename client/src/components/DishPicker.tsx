@@ -51,7 +51,15 @@ export interface DishPickerProps {
   disabled?: boolean;
   // Set by "order again" suggestions that need review; applied once per key.
   prefill?: DishPrefill | null;
+  // Personal favorites (♥ on each card, filter chip). Optional.
+  favoriteIds?: Set<string>;
+  onToggleFavorite?: (dishId: string) => void;
 }
+
+// Sentinel for the "♥ Favoriten" filter chip (cannot clash with a category name
+// because categories are trimmed user text without leading underscores... but
+// we still keep it unique enough).
+const FAVORITES_FILTER = '__favorites__';
 
 export function DishPicker({
   sessionId,
@@ -60,6 +68,8 @@ export function DishPicker({
   onAdded,
   disabled,
   prefill,
+  favoriteIds,
+  onToggleFavorite,
 }: DishPickerProps) {
   const [dishId, setDishId] = useState<string>(() => dishes[0]?.id ?? '');
   const dish = dishes.find((d) => d.id === dishId) ?? null;
@@ -102,13 +112,18 @@ export function DishPicker({
   }, [appliedPrefillKey]);
 
   const chips = useMemo<CategoryChip[]>(() => categoryChips(dishes), [dishes]);
-  // A single category doesn't warrant a filter row.
-  const showChips = chips.length > 1;
+  const favoriteCount = favoriteIds ? dishes.filter((d) => favoriteIds.has(d.id)).length : 0;
+  // A single category doesn't warrant a filter row — unless favorites exist.
+  const showChips = chips.length > 1 || favoriteCount > 0;
 
   const visibleDishes = useMemo<Dish[]>(() => {
     const q = fold(query.trim());
     return dishes.filter((d) => {
-      if (activeCategory !== null && dishCategory(d) !== activeCategory) return false;
+      if (activeCategory === FAVORITES_FILTER) {
+        if (!favoriteIds?.has(d.id)) return false;
+      } else if (activeCategory !== null && dishCategory(d) !== activeCategory) {
+        return false;
+      }
       if (q === '') return true;
       return (
         fold(d.name).includes(q) ||
@@ -116,7 +131,7 @@ export function DishPicker({
         fold(d.category).includes(q)
       );
     });
-  }, [dishes, activeCategory, query]);
+  }, [dishes, activeCategory, query, favoriteIds]);
 
   if (dishes.length === 0) {
     return (
@@ -214,6 +229,16 @@ export function DishPicker({
               onClick={() => setActiveCategory(null)}
               disabled={disabled || submitting}
             />
+            {favoriteCount > 0 ? (
+              <CategoryButton
+                label="Favoriten"
+                emoji="♥"
+                count={favoriteCount}
+                active={activeCategory === FAVORITES_FILTER}
+                onClick={() => setActiveCategory(FAVORITES_FILTER)}
+                disabled={disabled || submitting}
+              />
+            ) : null}
             {chips.map((c) => (
               <CategoryButton
                 key={c.category}
@@ -238,7 +263,7 @@ export function DishPicker({
               {visibleDishes.map((d) => {
                 const selected = d.id === dishId;
                 return (
-                  <li key={d.id}>
+                  <li key={d.id} className="relative">
                     <button
                       type="button"
                       onClick={() => setDishId(d.id)}
@@ -277,6 +302,31 @@ export function DishPicker({
                         {fmtPrice(d.base_price_cents)}
                       </span>
                     </button>
+                    {onToggleFavorite ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleFavorite(d.id);
+                        }}
+                        disabled={disabled || submitting}
+                        aria-pressed={favoriteIds?.has(d.id) ?? false}
+                        aria-label={
+                          favoriteIds?.has(d.id)
+                            ? `${d.name} aus Favoriten entfernen`
+                            : `${d.name} als Favorit speichern`
+                        }
+                        title={favoriteIds?.has(d.id) ? 'Favorit entfernen' : 'Als Favorit speichern'}
+                        className={
+                          'absolute right-2 bottom-2 grid h-7 w-7 place-items-center rounded-full text-base leading-none transition ' +
+                          (favoriteIds?.has(d.id)
+                            ? 'bg-rose-50 text-rose-500 ring-1 ring-rose-200'
+                            : 'text-stone-300 hover:bg-stone-100 hover:text-rose-400')
+                        }
+                      >
+                        {favoriteIds?.has(d.id) ? '♥' : '♡'}
+                      </button>
+                    ) : null}
                   </li>
                 );
               })}

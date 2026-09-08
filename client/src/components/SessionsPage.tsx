@@ -56,6 +56,9 @@ export function SessionsPage({ profile }: SessionsPageProps) {
             <WorkspaceLink to="/restaurants" className="btn-link">
               Restaurants
             </WorkspaceLink>
+            <WorkspaceLink to="/statistik" className="btn-link">
+              Statistik
+            </WorkspaceLink>
             <ShareButton
               label="Link teilen"
               title="Mahlzeit-Workspace"

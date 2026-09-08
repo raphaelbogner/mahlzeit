@@ -673,3 +673,33 @@ Content-Type: application/json
 {
   "user_id": "{{userId}}"
 }
+
+### =====================================================================
+### Phase 4 – favorites (migration 012) and stats
+### =====================================================================
+
+### My favorites at one restaurant
+GET {{host}}/api/favorites?user_id={{userId}}&restaurant_id={{restaurantId}}
+X-Workspace-Token: {{token}}
+
+### Mark a dish as favorite
+PUT {{host}}/api/favorites/{{dishId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}"
+}
+
+### Remove favorite
+DELETE {{host}}/api/favorites/{{dishId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}"
+}
+
+### Workspace statistics (range=30d|year|all); user_id adds "my top dishes"
+GET {{host}}/api/stats?range=30d&user_id={{userId}}
+X-Workspace-Token: {{token}}

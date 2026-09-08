@@ -9,6 +9,7 @@ import { SessionsPage } from './components/SessionsPage';
 import { SessionDetail } from './components/SessionDetail';
 import { RestaurantList } from './components/RestaurantList';
 import { RestaurantEditor } from './components/RestaurantEditor';
+import { StatsPage } from './components/StatsPage';
 import { ImportProfileDialog } from './components/ImportProfileDialog';
 import { ToastProvider } from './components/Toast';
 
@@ -83,6 +84,7 @@ function AppRouter() {
           <Route path="/s/:id" element={<SessionDetail profile={profile} />} />
           <Route path="/restaurants" element={<RestaurantList />} />
           <Route path="/restaurants/:id" element={<RestaurantEditor />} />
+          <Route path="/statistik" element={<StatsPage profile={profile} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

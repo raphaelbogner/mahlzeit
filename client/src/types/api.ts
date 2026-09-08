@@ -106,6 +106,24 @@ export interface SuggestionsResponse {
   suggestions: ReorderSuggestion[];
 }
 
+export interface FavoritesResponse {
+  dish_ids: string[];
+}
+
+export type StatsRange = '30d' | 'year' | 'all';
+
+export interface StatsResponse {
+  range: StatsRange;
+  from: string | null;
+  to: string;
+  totals: { sessions: number; items: number; spend_cents: number; discount_cents: number };
+  top_dishes: { dish: string; count: number; spend_cents: number }[];
+  my_top_dishes: { dish: string; count: number }[];
+  restaurants: { restaurant_name: string; sessions: number; spend_cents: number }[];
+  payers: { user_name: string; sessions_paid: number; received_cents: number }[];
+  persons: { user_name: string; spend_cents: number; items: number }[];
+}
+
 export interface DishOption {
   id: string;
   group_id: string;

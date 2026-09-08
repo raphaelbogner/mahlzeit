@@ -18,8 +18,8 @@ function ShareIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width="1em"
+      height="1em"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -73,10 +73,10 @@ export function ShareButton({ label, title, getText, className, disabled, iconOn
       type="button"
       onClick={() => void handleClick()}
       disabled={disabled || busy}
-      className={className ?? 'btn-secondary btn-sm'}
+      className={(className ?? 'btn-secondary btn-sm') + ' inline-flex items-center gap-1.5'}
       aria-label={label}
     >
-      <span aria-hidden="true">↗ </span>
+      <ShareIcon />
       {label}
     </button>
   );

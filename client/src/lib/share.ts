@@ -90,14 +90,22 @@ export async function copyText(text: string, nav: ShareNavigator, doc?: Document
   }
 }
 
-// Native share sheet on devices that have one (phones), clipboard otherwise.
-// A dismissed share sheet is 'cancelled', not an error.
+// Native share sheet on phones/tablets, clipboard on desktops (where the OS
+// share dialog is more hassle than a paste). A dismissed sheet is
+// 'cancelled', not an error. `useNativeShare` defaults to a touch heuristic.
+export function isTouchDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+  return coarse || /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
 export async function shareOrCopy(
   data: { title: string; text: string },
   nav: ShareNavigator,
   doc?: Document,
+  useNativeShare: boolean = isTouchDevice(),
 ): Promise<ShareOutcome> {
-  if (nav.share) {
+  if (nav.share && useNativeShare) {
     try {
       await nav.share({ title: data.title, text: data.text });
       return 'shared';

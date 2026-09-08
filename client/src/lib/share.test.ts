@@ -81,7 +81,7 @@ describe('text builders', () => {
 describe('shareOrCopy', () => {
   it('uses the native share sheet when available', async () => {
     const share = vi.fn().mockResolvedValue(undefined);
-    expect(await shareOrCopy({ title: 't', text: 'x' }, { share })).toBe('shared');
+    expect(await shareOrCopy({ title: 't', text: 'x' }, { share }, undefined, true)).toBe('shared');
     expect(share).toHaveBeenCalledWith({ title: 't', text: 'x' });
   });
 
@@ -89,7 +89,7 @@ describe('shareOrCopy', () => {
     const err = new Error('dismissed');
     err.name = 'AbortError';
     const share = vi.fn().mockRejectedValue(err);
-    expect(await shareOrCopy({ title: 't', text: 'x' }, { share })).toBe('cancelled');
+    expect(await shareOrCopy({ title: 't', text: 'x' }, { share }, undefined, true)).toBe('cancelled');
   });
 
   it('falls back to the clipboard without share support or on share errors', async () => {
@@ -99,8 +99,17 @@ describe('shareOrCopy', () => {
 
     const share = vi.fn().mockRejectedValue(new Error('unsupported'));
     expect(
-      await shareOrCopy({ title: 't', text: 'x' }, { share, clipboard: { writeText } }),
+      await shareOrCopy({ title: 't', text: 'x' }, { share, clipboard: { writeText } }, undefined, true),
     ).toBe('copied');
+  });
+
+  it('copies on desktop even when share is available', async () => {
+    const share = vi.fn();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    expect(
+      await shareOrCopy({ title: 't', text: 'x' }, { share, clipboard: { writeText } }, undefined, false),
+    ).toBe('copied');
+    expect(share).not.toHaveBeenCalled();
   });
 
   it('fails when nothing is available', async () => {

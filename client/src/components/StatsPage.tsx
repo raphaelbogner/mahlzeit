@@ -166,7 +166,7 @@ export function StatsPage({ profile }: StatsPageProps) {
                 }))}
               />
               <BarList
-                title="Ausgaben pro Person (vor Rabatt)"
+                title="Ausgaben pro Person"
                 empty="Noch niemand."
                 rows={stats.persons.map((p) => ({
                   label: p.user_name,

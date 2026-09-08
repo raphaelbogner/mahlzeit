@@ -112,23 +112,38 @@ function handle_stats_route(string $method, array $segments, array $workspace): 
         ], $myStmt->fetchAll());
     }
 
-    // Spend per person (gross, before discounts — the discount is a
-    // session-level gift and not attributed per person here).
+    // Spend per person, *net*: each session's discount is split across its
+    // orderers proportionally to their spend with the same largest-remainder
+    // rounding as the client summary, so "what this person paid" matches.
     $personStmt = $pdo->prepare(
-        'SELECT i.user_id, MAX(i.user_name) AS user_name,
-                COALESCE(SUM(i.price_cents * i.quantity), 0) AS spend_cents,
+        'SELECT i.session_id, i.user_id, MAX(i.user_name) AS user_name,
+                COALESCE(SUM(i.price_cents * i.quantity), 0) AS gross_cents,
                 SUM(i.quantity) AS items
          FROM items i JOIN sessions s ON s.id = i.session_id
          WHERE s.workspace_id = :wid AND s.status = "closed"' . $sinceSql . '
-         GROUP BY i.user_id
-         ORDER BY spend_cents DESC'
+         GROUP BY i.session_id, i.user_id'
     );
     $personStmt->execute($base);
-    $persons = array_map(static fn(array $r): array => [
-        'user_name'   => (string)$r['user_name'],
-        'spend_cents' => (int)$r['spend_cents'],
-        'items'       => (int)$r['items'],
-    ], $personStmt->fetchAll());
+    $bySession = [];
+    foreach ($personStmt->fetchAll() as $r) {
+        $bySession[$r['session_id']][] = $r;
+    }
+    $discountBySession = [];
+    foreach ($sessions as $s) {
+        $discountBySession[$s['id']] = min(max(0, (int)$s['discount_cents']), (int)$s['total_cents']);
+    }
+    $persons = [];
+    foreach ($bySession as $sid => $rows) {
+        $shares = stats_split_discount($rows, $discountBySession[$sid] ?? 0);
+        foreach ($rows as $idx => $r) {
+            $uid = $r['user_id'];
+            $persons[$uid] ??= ['user_name' => (string)$r['user_name'], 'spend_cents' => 0, 'items' => 0];
+            $persons[$uid]['spend_cents'] += (int)$r['gross_cents'] - $shares[$idx];
+            $persons[$uid]['items'] += (int)$r['items'];
+        }
+    }
+    $persons = array_values($persons);
+    usort($persons, static fn(array $a, array $b): int => $b['spend_cents'] <=> $a['spend_cents']);
 
     json_response(200, [
         'range'         => $range,
@@ -141,4 +156,41 @@ function handle_stats_route(string $method, array $segments, array $workspace): 
         'payers'        => array_values($payers),
         'persons'       => $persons,
     ]);
+}
+
+// Largest-remainder split of $discount over rows (keyed by index) in
+// proportion to gross_cents. Mirrors distributeDiscount() in lib/aggregate.ts.
+function stats_split_discount(array $rows, int $discount): array
+{
+    $shares = array_fill(0, count($rows), 0);
+    $total = 0;
+    foreach ($rows as $r) {
+        $total += (int)$r['gross_cents'];
+    }
+    if ($discount <= 0 || $total <= 0) {
+        return $shares;
+    }
+    $fracs = [];
+    $allocated = 0;
+    foreach ($rows as $i => $r) {
+        $gross = (int)$r['gross_cents'];
+        if ($gross <= 0) {
+            continue;
+        }
+        $exact = $discount * $gross / $total;
+        $base  = (int)floor($exact);
+        $shares[$i] = $base;
+        $allocated += $base;
+        $fracs[] = ['i' => $i, 'frac' => $exact - $base, 'uid' => (string)$r['user_id']];
+    }
+    usort($fracs, static fn(array $a, array $b): int => [$b['frac'], $a['uid']] <=> [$a['frac'], $b['uid']]);
+    $remainder = $discount - $allocated;
+    foreach ($fracs as $f) {
+        if ($remainder <= 0) {
+            break;
+        }
+        $shares[$f['i']]++;
+        $remainder--;
+    }
+    return $shares;
 }

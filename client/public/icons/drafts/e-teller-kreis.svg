@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- E: Teller, Besteck liegt gekreuzt auf dem Teller -->
+  <rect width="512" height="512" rx="112" fill="#f97316"/>
+  <circle cx="256" cy="256" r="160" fill="#fff7ed"/>
+  <circle cx="256" cy="256" r="118" fill="#fed7aa"/>
+  <g fill="#f97316" transform="rotate(45 256 256)">
+    <!-- fork -->
+    <rect x="186" y="128" width="9" height="52" rx="4.5"/>
+    <rect x="199" y="128" width="9" height="52" rx="4.5"/>
+    <rect x="212" y="128" width="9" height="52" rx="4.5"/>
+    <path d="M186 168h35v18c0 12-7.8 21-17.5 21S186 198 186 186z"/>
+    <rect x="197" y="204" width="13" height="176" rx="6.5"/>
+  </g>
+  <g fill="#f97316" transform="rotate(-45 256 256)">
+    <!-- knife -->
+    <path d="M320 128c-20 26-26 62-18 100l18 6z"/>
+    <rect x="313.5" y="220" width="13" height="160" rx="6.5"/>
+  </g>
+</svg>

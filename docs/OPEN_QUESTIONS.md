@@ -32,8 +32,8 @@ was entschieden wurde, warum, und wo man es ändert.
 
 ## Phase 3a (PWA, Sync)
 
-- **Logo:** Vier Entwürfe unter `client/public/icons/drafts/` (a-teller, b-lunchbox,
-  c-wrap, d-bubble). Provisorisch ist **A (Teller mit Besteck)** aktiv. Umschalten:
+- **Logo:** Fünf Entwürfe unter `client/public/icons/drafts/` (a-teller, b-lunchbox,
+  c-wrap, d-bubble, e-teller-kreis). Provisorisch ist **A (Teller mit Besteck)** aktiv. Umschalten:
   `cd client && node scripts/build-icons.mjs b` (dann Build). Das gewählte Logo
   ersetzt den orangen Punkt im Header der Startseite und auf der „Kein
   Workspace-Link“-Seite; `NameSetup` zeigt noch den Punkt.
@@ -73,9 +73,9 @@ was entschieden wurde, warum, und wo man es ändert.
   Bestellungen). Konstante `MAX_QUICK_PICKS` in `lib/quickPicks.ts`.
 - **Favorit mit Optionsgruppen** öffnet den Picker mit Standardauswahl statt
   direkt hinzuzufügen (Preis zeigt „ab …“).
-- **Statistik „Ausgaben pro Person“** ist *vor* Rabatt (Rabatte sind
-  Session-Geschenke und werden dort nicht pro Person umgelegt); Gesamt- und
-  Restaurant-Ausgaben sind *nach* Rabatt. Falls störend: `stats.php`.
+- **Statistik „Ausgaben pro Person“** ist *netto*: der Rabatt jeder Session
+  wird anteilig auf die Besteller umgelegt (gleiche Rundung wie in der
+  Zusammenfassung, `stats_split_discount()` in `stats.php`).
 - **Statistik zählt nur geschlossene Sessions**, offene fließen nirgends ein.
 - **Link „Statistik“** nur im Header der Startseite (Restaurant-Seiten haben
   weiterhin nur den Zurück-Link).

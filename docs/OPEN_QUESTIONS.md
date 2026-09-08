@@ -14,8 +14,9 @@ was entschieden wurde, warum, und wo man es ändert.
 
 ## Später zu entscheiden (bewusst offen gelassen)
 
-- **Logo/Icon-Auswahl** (Phase 3): Entwürfe liegen unter
-  `client/public/icons/drafts/`, provisorisch wird Entwurf A verwendet.
+- **Logo/Icon-Auswahl** (Phase 3): **entschieden**, Entwurf A (Teller mit
+  Besteck) ist final. Die übrigen Entwürfe bleiben als Referenz in
+  `client/public/icons/drafts/`.
 
 ## Phase 1b (Desktop)
 
@@ -33,7 +34,7 @@ was entschieden wurde, warum, und wo man es ändert.
 ## Phase 3a (PWA, Sync)
 
 - **Logo:** Fünf Entwürfe unter `client/public/icons/drafts/` (a-teller, b-lunchbox,
-  c-wrap, d-bubble, e-teller-kreis). Provisorisch ist **A (Teller mit Besteck)** aktiv. Umschalten:
+  c-wrap, d-bubble, e-teller-kreis). **A (Teller mit Besteck) ist final** (entschieden 2026-09-08). Umschalten:
   `cd client && node scripts/build-icons.mjs b` (dann Build). Das gewählte Logo
   ersetzt den orangen Punkt im Header der Startseite und auf der „Kein
   Workspace-Link“-Seite; `NameSetup` zeigt noch den Punkt.

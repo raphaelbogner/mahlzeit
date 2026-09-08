@@ -10,6 +10,10 @@ echo "sessions.paid_by_*:\n";
 foreach ($pdo->query("SHOW COLUMNS FROM sessions LIKE 'paid_by_%'") as $r) {
     echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}  default=" . var_export($r['Default'], true) . "\n";
 }
+echo "\nsessions.discount_*:\n";
+foreach ($pdo->query("SHOW COLUMNS FROM sessions LIKE 'discount_%'") as $r) {
+    echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}  default=" . var_export($r['Default'], true) . "\n";
+}
 echo "\nitems.paid_at:\n";
 foreach ($pdo->query("SHOW COLUMNS FROM items LIKE 'paid_at'") as $r) {
     echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}\n";

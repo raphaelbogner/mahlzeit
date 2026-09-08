@@ -41,6 +41,11 @@ export function SessionList({ sessions, loading }: SessionListProps) {
     <ul className="space-y-2.5">
       {sessions.map((s) => {
         const isOpen = s.status === 'open';
+        const priced = s.priced_items_count ?? 0;
+        const paid = s.paid_items_count ?? 0;
+        // Payment progress is only meaningful once the order is closed.
+        const showPaid = !isOpen && priced > 0;
+        const allPaid = paid >= priced;
         return (
           <li
             key={s.id}
@@ -56,6 +61,14 @@ export function SessionList({ sessions, loading }: SessionListProps) {
                     ) : (
                       <span className="badge-neutral">geschlossen</span>
                     )}
+                    {showPaid &&
+                      (allPaid ? (
+                        <span className="badge-info">✓ bezahlt</span>
+                      ) : (
+                        <span className="badge-info">
+                          {paid}/{priced} bezahlt
+                        </span>
+                      ))}
                   </div>
                   {s.restaurant_name && (
                     <p className="mt-0.5 truncate text-sm text-stone-600">{s.restaurant_name}</p>

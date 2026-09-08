@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { aggregateItems, renderSummaryText } from '../lib/aggregate';
 import type { AggregateOption } from '../lib/aggregate';
-import { fmtPrice } from '../lib/price';
+import { fmtPrice, parsePrice } from '../lib/price';
 import { cleanIban, formatIban, isValidIban } from '../lib/iban';
 import type { Session } from '../types/api';
 import type { Profile } from '../hooks/useProfile';
@@ -64,7 +64,10 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
   const { showError, showInfo } = useToast();
   const [copied, setCopied] = useState<boolean>(false);
 
-  const aggregate = useMemo(() => aggregateItems(session.items), [session.items]);
+  const aggregate = useMemo(
+    () => aggregateItems(session.items, session.discount_cents),
+    [session.items, session.discount_cents],
+  );
 
   const text = useMemo(
     () =>
@@ -73,12 +76,22 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
         restaurant_name: session.restaurant_name,
         creator_name: session.creator_name,
         creator_iban: session.creator_iban,
+        discount_label: session.discount_label,
         aggregate,
       }),
-    [session.title, session.restaurant_name, session.creator_name, session.creator_iban, aggregate],
+    [
+      session.title,
+      session.restaurant_name,
+      session.creator_name,
+      session.creator_iban,
+      session.discount_label,
+      aggregate,
+    ],
   );
 
   const isCreator = profile.user_id === session.creator_id;
+  const isClosed = session.status === 'closed';
+  const hasDiscount = aggregate.discount_cents > 0;
   const effectivePayerId = session.paid_by_user_id ?? session.creator_id;
   const effectivePayerName =
     session.paid_by_user_id === null ? session.creator_name : session.paid_by_user_name;
@@ -89,17 +102,19 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
 
   const knownUsers = useMemo(() => collectUsers(session), [session]);
 
-  // Current viewer's own outstanding amount (only items they added that have
-  // a price). Used to populate the SEPA QR with the exact transfer sum.
+  // Current viewer's own outstanding amount: their unpaid priced items minus
+  // their proportional share of the discount. Used to populate the SEPA QR
+  // with the exact transfer sum.
   const myAmountCents = useMemo(() => {
-    let sum = 0;
+    let unpaidGross = 0;
     for (const item of session.items) {
       if (item.user_id === profile.user_id && item.price_cents !== null && item.paid_at === null) {
-        sum += item.price_cents;
+        unpaidGross += item.price_cents;
       }
     }
-    return sum;
-  }, [session.items, profile.user_id]);
+    const myShare = aggregate.per_person.find((p) => p.user_name === profile.user_name);
+    return Math.max(0, unpaidGross - (myShare?.discount_cents ?? 0));
+  }, [session.items, profile.user_id, profile.user_name, aggregate]);
 
   const isViewerPayer = profile.user_id === effectivePayerId;
 
@@ -224,18 +239,64 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
                   <span className="ml-1 text-xs text-stone-500">(+ Einträge ohne Preis)</span>
                 )}
               </span>
-              <span className="font-medium text-stone-900">{fmtPrice(p.total_cents)}</span>
+              {hasDiscount && p.discount_cents > 0 ? (
+                <span>
+                  <span className="mr-1.5 text-stone-400 line-through">
+                    {fmtPrice(p.total_cents)}
+                  </span>
+                  <span className="font-medium text-stone-900">{fmtPrice(p.net_cents)}</span>
+                </span>
+              ) : (
+                <span className="font-medium text-stone-900">{fmtPrice(p.total_cents)}</span>
+              )}
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="flex items-baseline justify-between border-t border-stone-200 pt-3 tabular-nums">
-        <span className="text-sm font-medium text-stone-700">Gesamt</span>
-        <span className="text-lg font-semibold text-stone-900">
-          {fmtPrice(aggregate.grand_total_cents)}
-        </span>
+      <div className="border-t border-stone-200 pt-3 tabular-nums">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-medium text-stone-700">
+            {hasDiscount ? 'Zwischensumme' : 'Gesamt'}
+          </span>
+          <span
+            className={
+              hasDiscount
+                ? 'text-sm text-stone-500'
+                : 'text-lg font-semibold text-stone-900'
+            }
+          >
+            {fmtPrice(aggregate.grand_total_cents)}
+          </span>
+        </div>
+        {hasDiscount && (
+          <>
+            <div className="mt-1 flex items-baseline justify-between text-sm">
+              <span className="text-emerald-700">
+                Rabatt
+                {session.discount_label.trim() !== '' && (
+                  <span className="text-stone-500"> · {session.discount_label}</span>
+                )}
+              </span>
+              <span className="text-emerald-700">−{fmtPrice(aggregate.discount_cents)}</span>
+            </div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-sm font-medium text-stone-700">Zu zahlen</span>
+              <span className="text-lg font-semibold text-stone-900">
+                {fmtPrice(aggregate.net_total_cents)}
+              </span>
+            </div>
+          </>
+        )}
       </div>
+
+      {isClosed && isViewerPayer && aggregate.has_any_price ? (
+        <DiscountEditor
+          session={session}
+          profile={profile}
+          onSaved={(updated) => onSessionChanged({ ...updated, items: session.items })}
+        />
+      ) : null}
 
       {isCreator ? (
         <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4">
@@ -283,7 +344,7 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
         />
       ) : null}
 
-      {effectivePayerIban !== '' && aggregate.has_any_price ? (
+      {isClosed && effectivePayerIban !== '' && aggregate.has_any_price ? (
         <div className="mt-5 alert-info">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
@@ -316,7 +377,8 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
         </div>
       ) : null}
 
-      {session.paid_by_user_id !== null &&
+      {isClosed &&
+      session.paid_by_user_id !== null &&
       session.paid_by_iban === '' &&
       !isMarkedPayer &&
       aggregate.has_any_price ? (
@@ -329,6 +391,142 @@ export function Summary({ session, profile, onSessionChanged }: SummaryProps) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+interface DiscountEditorProps {
+  session: Session;
+  profile: Profile;
+  onSaved: (session: Session) => void;
+}
+
+// Lets the effective payer apply a discount to the closed order (e.g. a free
+// item from a loyalty card). The amount is split proportionally across all
+// orderers by aggregateItems().
+function DiscountEditor({ session, profile, onSaved }: DiscountEditorProps) {
+  const hasDiscount = session.discount_cents > 0;
+  const [open, setOpen] = useState<boolean>(false);
+  const [amount, setAmount] = useState<string>(
+    hasDiscount ? fmtPrice(session.discount_cents) : '',
+  );
+  const [label, setLabel] = useState<string>(session.discount_label);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<boolean>(false);
+  const { showError, showInfo } = useToast();
+
+  async function save(cents: number, discountLabel: string): Promise<void> {
+    setBusy(true);
+    try {
+      const updated = await updateSession(session.id, {
+        user_id: profile.user_id,
+        discount_cents: cents,
+        discount_label: discountLabel,
+      });
+      onSaved(updated);
+      setOpen(false);
+      showInfo(cents > 0 ? 'Rabatt gespeichert.' : 'Rabatt entfernt.');
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>): Promise<void> {
+    e.preventDefault();
+    const cents = parsePrice(amount);
+    if (cents === null || cents <= 0) {
+      setError('Bitte einen gültigen Betrag eingeben.');
+      return;
+    }
+    setError(null);
+    await save(cents, label.trim());
+  }
+
+  if (!open && !hasDiscount) {
+    return (
+      <div className="mt-5 border-t border-stone-200 pt-4">
+        <button type="button" onClick={() => setOpen(true)} className="btn-secondary btn-sm">
+          Rabatt hinzufügen
+        </button>
+        <p className="help-xs mt-1">
+          z.B. ein Gratis-Gericht von der Stempelkarte — wird anteilig auf alle aufgeteilt.
+        </p>
+      </div>
+    );
+  }
+
+  if (!open && hasDiscount) {
+    return (
+      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4">
+        <span className="text-sm text-stone-700">
+          Rabatt aktiv: <span className="font-medium">−{fmtPrice(session.discount_cents)}</span>
+          {session.discount_label.trim() !== '' && (
+            <span className="text-stone-500"> · {session.discount_label}</span>
+          )}
+        </span>
+        <button type="button" onClick={() => setOpen(true)} className="btn-secondary btn-sm">
+          Ändern
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void save(0, '')}
+          className="btn-secondary btn-sm"
+        >
+          Entfernen
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-5 alert-info" noValidate>
+      <p className="font-semibold">Rabatt aufteilen</p>
+      <p className="mt-1 text-xs">
+        Der Betrag wird anteilig zum Bestellwert von allen abgezogen.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          inputMode="decimal"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="z.B. 6,00"
+          className="input-mono w-28"
+          aria-label="Rabattbetrag"
+          aria-invalid={error ? 'true' : 'false'}
+        />
+        <input
+          type="text"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Grund (optional), z.B. Gratis-Dürüm"
+          maxLength={120}
+          className="input flex-1 min-w-0"
+          aria-label="Rabattgrund"
+        />
+        <button type="submit" disabled={busy} className="btn-primary btn-sm">
+          {busy ? 'Speichert…' : 'Speichern'}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+          }}
+          className="btn-secondary btn-sm"
+        >
+          Abbrechen
+        </button>
+      </div>
+      {error ? (
+        <p className="mt-1 text-xs text-rose-700" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </form>
   );
 }
 

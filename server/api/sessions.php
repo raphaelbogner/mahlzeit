@@ -49,8 +49,11 @@ function sessions_list(array $workspace): void
                 s.creator_id, s.creator_name, s.creator_iban, s.status,
                 s.created_at, s.closed_at,
                 s.paid_by_user_id, s.paid_by_user_name, s.paid_by_iban,
+                s.discount_cents, s.discount_label,
                 (SELECT COUNT(*) FROM items i WHERE i.session_id = s.id) AS items_count,
-                (SELECT COALESCE(SUM(i.price_cents), 0) FROM items i WHERE i.session_id = s.id) AS total_cents
+                (SELECT COALESCE(SUM(i.price_cents), 0) FROM items i WHERE i.session_id = s.id) AS total_cents,
+                (SELECT COUNT(*) FROM items i WHERE i.session_id = s.id AND i.price_cents IS NOT NULL) AS priced_count,
+                (SELECT COUNT(*) FROM items i WHERE i.session_id = s.id AND i.price_cents IS NOT NULL AND i.paid_at IS NOT NULL) AS paid_count
          FROM sessions s
          WHERE s.workspace_id = :wid
          ORDER BY s.created_at DESC'
@@ -154,6 +157,7 @@ function sessions_patch(array $workspace, string $id): void
         'restaurant_id', 'restaurant_name',
         'deadline', 'creator_iban', 'status',
         'paid_by_user_id', 'paid_by_user_name', 'paid_by_iban',
+        'discount_cents', 'discount_label',
     ]);
 
     $session = load_session_or_404($workspace, $id);
@@ -186,6 +190,21 @@ function sessions_patch(array $workspace, string $id): void
         // currently marked payer.
         if ($session['paid_by_user_id'] === null || $userId !== $session['paid_by_user_id']) {
             error_response(403, 'FORBIDDEN', 'Only the creator or the marked payer can change paid_by_iban.');
+        }
+    }
+
+    // The discount is settable by the effective payer (the person who gets the
+    // money: the marked payer, or the creator by default) and only once the
+    // session is closed — it reduces the amount everyone still owes.
+    $touchesDiscount = array_key_exists('discount_cents', $body)
+        || array_key_exists('discount_label', $body);
+    if ($touchesDiscount) {
+        $effectivePayerId = $session['paid_by_user_id'] ?? $session['creator_id'];
+        if ($userId !== $effectivePayerId) {
+            error_response(403, 'FORBIDDEN', 'Only the payer can set a discount.');
+        }
+        if ($session['status'] !== 'closed') {
+            error_response(409, 'SESSION_OPEN', 'A discount can only be set once the session is closed.');
         }
     }
 
@@ -269,6 +288,17 @@ function sessions_patch(array $workspace, string $id): void
         }
     }
 
+    if (array_key_exists('discount_cents', $body)) {
+        $val = $body['discount_cents'];
+        if (!is_int($val) || $val < 0 || $val > 10_000_000) {
+            error_response(400, 'INVALID_FIELD', 'Field discount_cents must be a non-negative integer (cents).');
+        }
+        $updates['discount_cents'] = $val;
+    }
+    if (array_key_exists('discount_label', $body)) {
+        $updates['discount_label'] = optional_string($body, 'discount_label', 120);
+    }
+
     if (count($updates) === 0) {
         // Nothing to update — return current state.
         sessions_get($workspace, $id);
@@ -320,7 +350,8 @@ function load_session_or_404(array $workspace, string $id): array
     $stmt = db()->prepare(
         'SELECT id, workspace_id, title, restaurant_id, restaurant_name, deadline,
                 creator_id, creator_name, creator_iban, status, created_at, closed_at,
-                paid_by_user_id, paid_by_user_name, paid_by_iban
+                paid_by_user_id, paid_by_user_name, paid_by_iban,
+                discount_cents, discount_label
          FROM sessions
          WHERE id = :id AND workspace_id = :wid
          LIMIT 1'
@@ -363,8 +394,12 @@ function format_session_row(array $row): array
         'paid_by_user_id'   => $row['paid_by_user_id'] ?? null,
         'paid_by_user_name' => $row['paid_by_user_name'] ?? '',
         'paid_by_iban'      => $row['paid_by_iban'] ?? '',
+        'discount_cents'    => isset($row['discount_cents']) ? (int)$row['discount_cents'] : 0,
+        'discount_label'    => $row['discount_label'] ?? '',
         'items_count'       => isset($row['items_count']) ? (int)$row['items_count'] : null,
         'total_cents'       => isset($row['total_cents']) ? (int)$row['total_cents'] : null,
+        'priced_items_count' => isset($row['priced_count']) ? (int)$row['priced_count'] : null,
+        'paid_items_count'   => isset($row['paid_count']) ? (int)$row['paid_count'] : null,
     ];
 }
 

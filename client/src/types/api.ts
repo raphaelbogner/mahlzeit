@@ -36,8 +36,13 @@ export interface SessionSummary {
   paid_by_user_id: string | null;
   paid_by_user_name: string;
   paid_by_iban: string;
+  discount_cents: number;
+  discount_label: string;
   items_count: number | null;
   total_cents: number | null;
+  // List-only payment progress; null on the single-session endpoint.
+  priced_items_count: number | null;
+  paid_items_count: number | null;
 }
 
 export interface Session extends SessionSummary {
@@ -115,6 +120,8 @@ export interface UpdateSessionInput {
   paid_by_user_id?: string | null;
   paid_by_user_name?: string;
   paid_by_iban?: string;
+  discount_cents?: number;
+  discount_label?: string;
 }
 
 export interface DeleteSessionInput {

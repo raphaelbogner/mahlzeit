@@ -157,6 +157,71 @@ describe('aggregateItems', () => {
     expect(agg.per_person[0]!.has_unpriced_items).toBe(true);
     expect(agg.per_person[0]!.total_cents).toBe(200);
   });
+
+  it('leaves totals untouched when there is no discount', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'A', price_cents: 2000 }),
+    ];
+    const agg = aggregateItems(items);
+    expect(agg.discount_cents).toBe(0);
+    expect(agg.net_total_cents).toBe(2000);
+    expect(agg.per_person[0]!.discount_cents).toBe(0);
+    expect(agg.per_person[0]!.net_cents).toBe(2000);
+  });
+
+  it('splits a discount proportionally to each person spend', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'A', price_cents: 2000 }),
+      makeItem({ id: 'i2aaaaaaaaaaaaaa', user_name: 'Bob', dish: 'B', price_cents: 1200 }),
+      makeItem({ id: 'i3aaaaaaaaaaaaaa', user_name: 'Cem', dish: 'C', price_cents: 800 }),
+    ];
+    const agg = aggregateItems(items, 600);
+    const byName = Object.fromEntries(agg.per_person.map((p) => [p.user_name, p]));
+    expect(byName.Anna!.discount_cents).toBe(300);
+    expect(byName.Bob!.discount_cents).toBe(180);
+    expect(byName.Cem!.discount_cents).toBe(120);
+    expect(byName.Anna!.net_cents).toBe(1700);
+    expect(agg.discount_cents).toBe(600);
+    expect(agg.net_total_cents).toBe(3400);
+  });
+
+  it('distributes rounding remainders so shares sum to the exact discount', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'A', price_cents: 100 }),
+      makeItem({ id: 'i2aaaaaaaaaaaaaa', user_name: 'Bob', dish: 'B', price_cents: 100 }),
+      makeItem({ id: 'i3aaaaaaaaaaaaaa', user_name: 'Cem', dish: 'C', price_cents: 100 }),
+    ];
+    const agg = aggregateItems(items, 100);
+    const sum = agg.per_person.reduce((s, p) => s + p.discount_cents, 0);
+    expect(sum).toBe(100);
+    // Each person's discount is one of the two whole-cent splits (33 or 34).
+    for (const p of agg.per_person) {
+      expect([33, 34]).toContain(p.discount_cents);
+    }
+  });
+
+  it('caps the discount at the grand total and never goes negative', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'A', price_cents: 500 }),
+    ];
+    const agg = aggregateItems(items, 99999);
+    expect(agg.discount_cents).toBe(500);
+    expect(agg.net_total_cents).toBe(0);
+    expect(agg.per_person[0]!.net_cents).toBe(0);
+    expect(agg.per_person[0]!.discount_cents).toBe(500);
+  });
+
+  it('gives unpriced-only people no discount', () => {
+    const items: Item[] = [
+      makeItem({ id: 'i1aaaaaaaaaaaaaa', user_name: 'Anna', dish: 'A', price_cents: 1000 }),
+      makeItem({ id: 'i2aaaaaaaaaaaaaa', user_name: 'Bob', dish: 'B', price_cents: null }),
+    ];
+    const agg = aggregateItems(items, 200);
+    const bob = agg.per_person.find((p) => p.user_name === 'Bob')!;
+    expect(bob.discount_cents).toBe(0);
+    const anna = agg.per_person.find((p) => p.user_name === 'Anna')!;
+    expect(anna.discount_cents).toBe(200);
+  });
 });
 
 describe('renderSummaryText', () => {

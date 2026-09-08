@@ -3,7 +3,6 @@
   "short_name": "Mahlzeit",
   "description": "Sammelbestellungen fürs Mittagessen",
   "lang": "de",
-  "start_url": "/w/",
   "scope": "/w/",
   "display": "standalone",
   "background_color": "#fafaf9",

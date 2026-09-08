@@ -31,7 +31,7 @@ export function HeaderNav() {
 
   return (
     <>
-      <nav className="hidden items-center gap-4 sm:flex" aria-label="Bereiche">
+      <nav className="hidden items-center gap-6 sm:flex" aria-label="Bereiche">
         <WorkspaceLink to="/restaurants" className="btn-link">
           Restaurants
         </WorkspaceLink>
@@ -39,10 +39,10 @@ export function HeaderNav() {
           Statistik
         </WorkspaceLink>
         <ShareButton
-          label="Workspace teilen"
+          label="Workspace-Link teilen"
           title="Mahlzeit-Workspace"
           getText={shareText}
-          className="btn-link text-sm"
+          iconOnly
         />
       </nav>
 

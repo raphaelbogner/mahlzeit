@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ensureTokenInUrl, getWorkspaceToken } from './api/client';
 import { ProfileProvider, useProfile } from './hooks/useProfile';
@@ -13,7 +14,33 @@ import { StatsPage } from './components/StatsPage';
 import { ImportProfileDialog } from './components/ImportProfileDialog';
 import { ToastProvider } from './components/Toast';
 
+// Extract ?w= from a pasted workspace/session link (or accept a bare token).
+function tokenFromInput(raw: string): string | null {
+  const text = raw.trim();
+  if (text === '') return null;
+  try {
+    const url = new URL(text);
+    const w = url.searchParams.get('w');
+    return w && w.length > 0 ? w : null;
+  } catch {
+    return /^[A-Za-z0-9_-]{20,}$/.test(text) ? text : null;
+  }
+}
+
 function MissingToken() {
+  const [link, setLink] = useState<string>('');
+  const [invalid, setInvalid] = useState<boolean>(false);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
+    e.preventDefault();
+    const token = tokenFromInput(link);
+    if (!token) {
+      setInvalid(true);
+      return;
+    }
+    window.location.assign(`/w/?w=${encodeURIComponent(token)}`);
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-stone-50 p-4">
       <div className="w-full max-w-md card-pad text-center">
@@ -29,6 +56,32 @@ function MissingToken() {
           -Parameter geöffnet werden. Bitte bei der Person nachfragen, die euch den Link geschickt
           hat.
         </p>
+        <form onSubmit={handleSubmit} className="mt-5 space-y-2 text-left" noValidate>
+          <label htmlFor="ws-link" className="label">
+            Workspace-Link einfügen
+          </label>
+          <input
+            id="ws-link"
+            type="url"
+            value={link}
+            onChange={(e) => {
+              setLink(e.target.value);
+              setInvalid(false);
+            }}
+            placeholder="https://…/w/?w=…"
+            className="input"
+            autoComplete="off"
+            aria-invalid={invalid ? 'true' : 'false'}
+          />
+          {invalid ? (
+            <p className="field-error" role="alert">
+              Darin steckt kein Workspace-Token.
+            </p>
+          ) : null}
+          <button type="submit" className="btn-primary w-full">
+            Öffnen
+          </button>
+        </form>
       </div>
     </div>
   );

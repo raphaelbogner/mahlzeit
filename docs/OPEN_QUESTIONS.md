@@ -45,6 +45,11 @@ was entschieden wurde, warum, und wo man es ändert.
   Start vom Home-Bildschirm. Konsequenz: Ein Gerät, das einmal einen Workspace
   geöffnet hat, landet ohne `?w=` automatisch wieder dort. Wechsel zu einem
   anderen Workspace funktioniert weiterhin über dessen Link.
+- **Manifest ohne `start_url`:** Die installierte App startet mit der URL, auf der
+  sie hinzugefügt wurde (inkl. `?w=`). Nötig für iOS, weil die Home-Bildschirm-App
+  dort einen eigenen Speicher hat und den gemerkten Token nicht sieht. Android
+  funktionierte auch vorher (gemeinsamer Speicher mit Chrome).
+- **„Kein Workspace-Link“-Seite** hat ein Feld zum Einfügen eines Links als Notausgang.
 - **Service Worker** cached nur App-Shell und Assets (kein API-Cache). Bei
   Deploys wird die Shell beim nächsten Online-Start aktualisiert.
 - **Import-Link ohne vorhandenes Profil** wird ohne Rückfrage übernommen

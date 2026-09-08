@@ -326,7 +326,7 @@ export function RestaurantEditor() {
           <WorkspaceLink to="/restaurants" className="btn-link">
             ← Restaurants
           </WorkspaceLink>
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
             <DuePill />
             <ProfileMenu />
             {!confirmingDelete ? (

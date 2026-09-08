@@ -52,7 +52,7 @@ export function SessionsPage({ profile }: SessionsPageProps) {
             />
             <span>Mahlzeit</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
             <WorkspaceLink to="/restaurants" className="btn-link">
               Restaurants
             </WorkspaceLink>
@@ -60,7 +60,7 @@ export function SessionsPage({ profile }: SessionsPageProps) {
               Statistik
             </WorkspaceLink>
             <ShareButton
-              label="Link teilen"
+              label="Teilen"
               title="Mahlzeit-Workspace"
               getText={() =>
                 buildWorkspaceInviteText(

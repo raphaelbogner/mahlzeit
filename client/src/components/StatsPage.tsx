@@ -75,7 +75,7 @@ export function StatsPage({ profile }: StatsPageProps) {
           <WorkspaceLink to="/" className="btn-link">
             ← Sammelbestellungen
           </WorkspaceLink>
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
             <DuePill />
             <ProfileMenu />
           </div>

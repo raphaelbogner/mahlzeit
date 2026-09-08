@@ -5,6 +5,7 @@ require_once __DIR__ . '/../shared/db.php';
 require_once __DIR__ . '/../shared/ids.php';
 require_once __DIR__ . '/http.php';
 require_once __DIR__ . '/sessions.php'; // for load_session_or_404, format_item_row
+require_once __DIR__ . '/participation.php'; // for clear_decline
 
 // Dispatcher for /api/sessions/{sid}/items[/{itemId}]. POST accepts both
 // freitext (dish + optional price) and structured (dish_id + option_ids)
@@ -109,6 +110,9 @@ function items_create(array $session, array $workspace): void
         ':price' => $priceCents,
         ':qty'   => $quantity,
     ]);
+
+    // Ordering supersedes an earlier "Heute nicht dabei".
+    clear_decline($session['id'], $userId);
 
     $item = load_item_or_404($session['id'], $id);
     json_response(201, $item);
@@ -263,6 +267,9 @@ function items_create_structured(
         ':qty'   => $quantity,
         ':opts'  => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
     ]);
+
+    // Ordering supersedes an earlier "Heute nicht dabei".
+    clear_decline($session['id'], $userId);
 
     $item = load_item_or_404($session['id'], $id);
     json_response(201, $item);

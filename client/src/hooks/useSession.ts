@@ -13,7 +13,7 @@ export interface UseSessionResult {
   setSession: (next: Session) => void;
 }
 
-export function useSession(id: string | undefined): UseSessionResult {
+export function useSession(id: string | undefined, userId?: string): UseSessionResult {
   const [session, setSessionState] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<ApiError | null>(null);
@@ -41,7 +41,7 @@ export function useSession(id: string | undefined): UseSessionResult {
     const tick = async (isFirst: boolean) => {
       if (isFirst) setLoading(true);
       try {
-        const data = await getSession(id, controller.signal);
+        const data = await getSession(id, controller.signal, userId);
         if (cancelled) return;
         setSessionState(data);
         hasData = true;
@@ -64,7 +64,7 @@ export function useSession(id: string | undefined): UseSessionResult {
       controller.abort();
       window.clearInterval(interval);
     };
-  }, [id, refreshTick]);
+  }, [id, refreshTick, userId]);
 
   return { session, loading, error, refresh, setSession };
 }

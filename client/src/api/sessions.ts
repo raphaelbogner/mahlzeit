@@ -18,8 +18,16 @@ export async function listSessions(
   return res.sessions;
 }
 
-export async function getSession(id: string, signal?: AbortSignal): Promise<Session> {
-  return apiRequest<Session>(`/sessions/${encodeURIComponent(id)}`, { signal });
+// With userId the response includes my_declined ("Heute nicht dabei").
+export async function getSession(
+  id: string,
+  signal?: AbortSignal,
+  userId?: string,
+): Promise<Session> {
+  const path = userId
+    ? `/sessions/${encodeURIComponent(id)}?user_id=${encodeURIComponent(userId)}`
+    : `/sessions/${encodeURIComponent(id)}`;
+  return apiRequest<Session>(path, { signal });
 }
 
 export async function createSession(input: CreateSessionInput): Promise<Session> {

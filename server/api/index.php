@@ -11,6 +11,7 @@ require_once __DIR__ . '/items.php';
 require_once __DIR__ . '/restaurants.php';
 require_once __DIR__ . '/templates.php';
 require_once __DIR__ . '/suggestions.php';
+require_once __DIR__ . '/participation.php';
 
 set_error_handler(function (int $errno, string $msg, string $file, int $line): bool {
     if (!(error_reporting() & $errno)) {
@@ -59,13 +60,21 @@ $resource = array_shift($segments);
 
 switch ($resource) {
     case 'sessions':
-        // sessions[/{id}[/items[/{itemId}]]] and sessions/{id}/suggestions
-        if (count($segments) === 2 && $segments[1] === 'suggestions') {
+        // sessions[/{id}[/items[/{itemId}]]], plus per-session sub-resources
+        // suggestions, participation and decline.
+        $sub = count($segments) === 2 ? $segments[1] : null;
+        if ($sub === 'suggestions' || $sub === 'participation' || $sub === 'decline') {
             $sessionId = $segments[0];
             if (!is_valid_id($sessionId)) {
                 error_response(404, 'NOT_FOUND', 'Session not found.');
             }
-            handle_suggestions_route($method, $workspace, $sessionId);
+            if ($sub === 'suggestions') {
+                handle_suggestions_route($method, $workspace, $sessionId);
+            } elseif ($sub === 'participation') {
+                handle_participation_route($method, $workspace, $sessionId);
+            } else {
+                handle_decline_route($method, $workspace, $sessionId);
+            }
         } elseif (count($segments) >= 2 && $segments[1] === 'items') {
             $sessionId = $segments[0];
             if (!is_valid_id($sessionId)) {

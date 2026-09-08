@@ -29,6 +29,24 @@ export function buildInviteText(input: InviteTextInput): string {
   return lines.join('\n');
 }
 
+export interface ReminderTextInput {
+  names: string[];
+  title: string;
+  deadline_at: string | null;
+  url: string;
+  now?: Date;
+}
+
+// Nudge for people who have not ordered yet.
+export function buildReminderText(input: ReminderTextInput): string {
+  const who = input.names.length > 0 ? `Hey ${input.names.join(', ')} – ` : '';
+  const deadline = parseDeadline(input.deadline_at);
+  const when = deadline
+    ? `Bestellschluss ist ${formatDeadlineAbsolute(deadline, input.now ?? new Date())}`
+    : 'die Bestellung läuft noch';
+  return `${who}${when}. „${input.title}“ – hier bestellen: ${input.url}`;
+}
+
 // Closed session: the summary text (per-person amounts, IBAN) plus a link.
 export function buildPaymentText(summaryText: string, url: string): string {
   return `${summaryText}\n\nDetails & QR-Code: ${url}`;

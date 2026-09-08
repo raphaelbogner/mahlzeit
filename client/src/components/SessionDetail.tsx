@@ -21,6 +21,8 @@ import { fmtPrice } from '../lib/price';
 import { formatIban } from '../lib/iban';
 import { parseDeadline } from '../lib/deadline';
 import { hasOpenDues } from '../lib/archive';
+import { declineSession, undeclineSession } from '../api/participation';
+import { ParticipationPanel } from './ParticipationPanel';
 
 export interface SessionDetailProps {
   profile: Profile;
@@ -37,7 +39,7 @@ function totalCents(session: Session): number {
 export function SessionDetail({ profile }: SessionDetailProps) {
   const params = useParams<{ id: string }>();
   const navigate = useWorkspaceNavigate();
-  const { session, loading, error, setSession, refresh } = useSession(params.id);
+  const { session, loading, error, setSession, refresh } = useSession(params.id, profile.user_id);
   useErrorToast(error);
   const { showError } = useToast();
 
@@ -95,6 +97,9 @@ export function SessionDetail({ profile }: SessionDetailProps) {
   const effectivePayerId = session.paid_by_user_id ?? session.creator_id;
   const isArchived = session.archived_at !== null;
   const canArchive = isCreator || profile.user_id === effectivePayerId;
+  const canSeeParticipation = isCreator || profile.user_id === effectivePayerId;
+  const hasOwnItems = session.items.some((it) => it.user_id === profile.user_id);
+  const sessionUrl = buildSessionUrl(session.id, getWorkspaceToken() ?? '', window.location.origin);
 
   function handleItemAdded(item: Item): void {
     if (!session) return;
@@ -123,6 +128,26 @@ export function SessionDetail({ profile }: SessionDetailProps) {
         status: isOpen ? 'closed' : 'open',
       });
       setSession({ ...next, items: session.items });
+    } catch (err) {
+      showError(err instanceof ApiError ? err.message : 'Aktion fehlgeschlagen.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDecline(declined: boolean): Promise<void> {
+    if (!session) return;
+    setBusy(true);
+    try {
+      if (declined) {
+        await declineSession(session.id, {
+          user_id: profile.user_id,
+          user_name: profile.user_name,
+        });
+      } else {
+        await undeclineSession(session.id, { user_id: profile.user_id });
+      }
+      setSession({ ...session, my_declined: declined });
     } catch (err) {
       showError(err instanceof ApiError ? err.message : 'Aktion fehlgeschlagen.');
     } finally {
@@ -247,6 +272,14 @@ export function SessionDetail({ profile }: SessionDetailProps) {
                   </button>
                 ) : null}
               </div>
+              {isOpen && canSeeParticipation ? (
+                <ParticipationPanel session={session} profile={profile} sessionUrl={sessionUrl} />
+              ) : null}
+              {isOpen && session.my_declined ? (
+                <p className="mt-2 text-xs text-stone-500">
+                  Du hast für heute abgesagt. Sobald du etwas bestellst, gilt das nicht mehr.
+                </p>
+              ) : null}
               {editingDeadline ? (
                 <div className="mt-3 rounded-xl bg-stone-50 p-3 ring-1 ring-stone-200">
                   <DeadlinePicker
@@ -291,15 +324,34 @@ export function SessionDetail({ profile }: SessionDetailProps) {
                       title: session.title,
                       restaurant_name: session.restaurant_name,
                       deadline_at: session.deadline_at,
-                      url: buildSessionUrl(
-                        session.id,
-                        getWorkspaceToken() ?? '',
-                        window.location.origin,
-                      ),
+                      url: sessionUrl,
                     })
                   }
                 />
               ) : null}
+            {isOpen && !hasOwnItems ? (
+              session.my_declined ? (
+                <button
+                  type="button"
+                  onClick={() => void handleDecline(false)}
+                  disabled={busy}
+                  className="btn-secondary btn-sm"
+                  title="Absage zurücknehmen"
+                >
+                  Doch dabei
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleDecline(true)}
+                  disabled={busy}
+                  className="btn-ghost btn-sm"
+                  title="Du wirst nicht als fehlend gelistet"
+                >
+                  Heute nicht dabei
+                </button>
+              )
+            ) : null}
             {!isOpen && canArchive ? (
               isArchived ? (
                 <button

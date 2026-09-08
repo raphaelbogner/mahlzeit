@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   buildInviteText,
   buildPaymentText,
+  buildReminderText,
   buildSessionUrl,
   buildWorkspaceInviteText,
   buildWorkspaceUrl,
@@ -49,6 +50,21 @@ describe('text builders', () => {
     });
     expect(text).not.toContain(' bei ');
     expect(text).not.toContain('Bestellschluss');
+  });
+
+  it('builds a reminder naming the missing people', () => {
+    const text = buildReminderText({
+      names: ['Anna', 'Bob'],
+      title: 'Pizza Freitag',
+      deadline_at: new Date(2026, 8, 8, 11, 30).toISOString(),
+      url: 'https://x/y',
+      now,
+    });
+    expect(text).toMatch(/^Hey Anna, Bob – Bestellschluss ist heute um \d{2}:\d{2}\./);
+    expect(text).toContain('„Pizza Freitag“ – hier bestellen: https://x/y');
+    expect(
+      buildReminderText({ names: [], title: 'X', deadline_at: null, url: 'u', now }),
+    ).toContain('die Bestellung läuft noch');
   });
 
   it('appends the link to the payment summary', () => {

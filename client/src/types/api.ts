@@ -69,6 +69,19 @@ export interface SessionSummary {
 
 export interface Session extends SessionSummary {
   items: Item[];
+  // Only present when fetched with ?user_id=: viewer said "Heute nicht dabei".
+  my_declined?: boolean;
+}
+
+export interface KnownUser {
+  user_id: string;
+  user_name: string;
+}
+
+export interface ParticipationResponse {
+  known: KnownUser[];
+  ordered: string[];
+  declined: KnownUser[];
 }
 
 export interface SessionsListResponse {

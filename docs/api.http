@@ -603,3 +603,35 @@ Content-Type: application/json
   "target_user_id": "{{userId}}",
   "paid": true
 }
+
+### =====================================================================
+### Phase 2 – participation (migration 010)
+### =====================================================================
+
+### Who is known (ordered in the last 60 days), who ordered here, who declined
+### (creator or effective payer only → otherwise 403)
+GET {{host}}/api/sessions/{{sessionId}}/participation?user_id={{userId}}
+X-Workspace-Token: {{token}}
+
+### "Heute nicht dabei" (open session only)
+PUT {{host}}/api/sessions/{{sessionId}}/decline
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "Anna"
+}
+
+### Take the decline back
+DELETE {{host}}/api/sessions/{{sessionId}}/decline
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}"
+}
+
+### Session GET with my_declined flag
+GET {{host}}/api/sessions/{{sessionId}}?user_id={{userId}}
+X-Workspace-Token: {{token}}

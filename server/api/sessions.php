@@ -193,6 +193,12 @@ function sessions_get(array $workspace, string $id, int $status = 200): void
 {
     $session = load_session_or_404($workspace, $id);
     $session['items'] = load_items($id);
+    // With ?user_id= the client learns whether the viewer opted out
+    // ("Heute nicht dabei") without an extra request.
+    $viewer = $_GET['user_id'] ?? null;
+    if (is_string($viewer) && is_valid_id($viewer) && function_exists('session_has_decline')) {
+        $session['my_declined'] = session_has_decline($id, $viewer);
+    }
     json_response($status, $session);
 }
 

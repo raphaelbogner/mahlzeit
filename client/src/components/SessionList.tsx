@@ -42,7 +42,7 @@ export function SessionList({ sessions, loading, myUserId }: SessionListProps) {
   }
 
   return (
-    <ul className="grid gap-2.5 lg:grid-cols-2">
+    <ul className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
       {sessions.map((s) => {
         const isOpen = s.status === 'open';
         const priced = s.priced_items_count ?? 0;

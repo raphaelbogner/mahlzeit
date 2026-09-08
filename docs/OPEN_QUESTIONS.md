@@ -26,6 +26,8 @@ was entschieden wurde, warum, und wo man es ändert.
 - **Gericht-Editor Desktop:** Der Einklapp-Knopf (▾) im geöffneten Editor ist
   auf Desktop wirkungslos, weil dort immer genau ein Gericht offen ist. Kann
   man später ausblenden (`DishEditor.tsx`, Prop `collapsed`).
+- **Breiten-Stufen:** lg 1152 px, xl 1280 px, 2xl 1440 px (Seitenspalte 360 → 440 px,
+  Karten 2 → 3 Spalten). Mehr Breite bringt keinen Lesegewinn, daher Deckel bei 1440.
 - **Header-Höhe** als CSS-Variable `--header-h: 3.5rem` für die Sticky-Spalte.
   Wird der Header höher (z. B. Logo in Phase 3), Variable anpassen.
 - **Startseite Desktop:** Formular „Neue Sammelbestellung" ist rechts immer

@@ -49,7 +49,6 @@ export function DuePill({ sessions }: DuePillProps) {
         className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800 ring-1 ring-orange-200 transition hover:bg-orange-200 tabular-nums"
         title="Offene Beträge"
       >
-        <span aria-hidden="true">€</span>
         {fmtPrice(overview.total_cents)} offen
       </button>
       {open ? (

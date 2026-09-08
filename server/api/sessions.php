@@ -200,7 +200,10 @@ function resolve_restaurant_id_or_400(array $workspace, mixed $value): string
 
 function sessions_get(array $workspace, string $id, int $status = 200): void
 {
-    $session = load_session_or_404($workspace, $id);
+    // Same shape as the list: UTC timestamps get their "Z", booleans are
+    // booleans. Returning the raw row made the client parse deadline_at as
+    // local time (2h off in Vienna).
+    $session = format_session_row(load_session_or_404($workspace, $id));
     $session['items'] = load_items($id);
     // With ?user_id= the client learns whether the viewer opted out
     // ("Heute nicht dabei") without an extra request.

@@ -10,8 +10,7 @@
     <rect x="112" y="110" width="11" height="64" rx="5.5"/>
     <path d="M80 160h43v22c0 15-9.6 26-21.5 26S80 197 80 182z"/>
     <rect x="93.5" y="200" width="16" height="200" rx="8"/>
-    <!-- knife: curved blade, slim handle -->
-    <path d="M426 110c-24 30-32 74-22 118l22 8z"/>
-    <rect x="418" y="216" width="16" height="184" rx="8"/>
+    <!-- knife: one silhouette, straight right edge from tip to handle end -->
+    <path d="M424 110c-30 30-38 80-16 126v156a8 8 0 0 0 16 0z"/>
   </g>
 </svg>

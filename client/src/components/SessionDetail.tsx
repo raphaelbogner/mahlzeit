@@ -23,6 +23,7 @@ import { parseDeadline } from '../lib/deadline';
 import { hasOpenDues } from '../lib/archive';
 import { declineSession, undeclineSession } from '../api/participation';
 import { ParticipationPanel } from './ParticipationPanel';
+import { FirstOrderHints } from './FirstOrderHints';
 
 export interface SessionDetailProps {
   profile: Profile;
@@ -465,6 +466,8 @@ export function SessionDetail({ profile }: SessionDetailProps) {
             </ul>
           )}
         </section>
+
+        {hasOwnItems ? <FirstOrderHints /> : null}
 
         {isOpen ? (
           <AddItemForm

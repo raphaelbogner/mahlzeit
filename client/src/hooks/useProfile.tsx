@@ -67,6 +67,8 @@ export interface UseProfileResult {
   saveProfile: (input: { user_name: string; iban: string }) => Profile;
   updateProfile: (patch: Partial<Pick<Profile, 'user_name' | 'iban'>>) => void;
   clearProfile: () => void;
+  // Replace the whole profile (device sync / restore link).
+  importProfile: (next: Profile) => void;
   ready: boolean;
 }
 
@@ -116,9 +118,14 @@ function useProfileImpl(): UseProfileResult {
     setProfile(null);
   }, []);
 
+  const importProfile = useCallback((next: Profile): void => {
+    writeStorage(next);
+    setProfile(next);
+  }, []);
+
   return useMemo(
-    () => ({ profile, saveProfile, updateProfile, clearProfile, ready }),
-    [profile, saveProfile, updateProfile, clearProfile, ready],
+    () => ({ profile, saveProfile, updateProfile, clearProfile, importProfile, ready }),
+    [profile, saveProfile, updateProfile, clearProfile, importProfile, ready],
   );
 }
 

@@ -45,7 +45,11 @@ export function SessionsPage({ profile }: SessionsPageProps) {
       <header className="app-header">
         <div className="app-header-inner">
           <div className="brand">
-            <span className="brand-dot" aria-hidden="true" />
+            <img
+              src={`${import.meta.env.BASE_URL}icons/icon.svg`}
+              alt=""
+              className="h-6 w-6 rounded-md"
+            />
             <span>Mahlzeit</span>
           </div>
           <div className="flex items-center gap-3">

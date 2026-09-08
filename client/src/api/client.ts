@@ -12,10 +12,40 @@ export class ApiError extends Error {
   }
 }
 
+const TOKEN_STORAGE_KEY = 'mahlzeit.workspace.v1';
+
+// The token comes from the shared link (?w=). It is also remembered per
+// browser so an installed PWA can start from the home screen (whose start_url
+// cannot carry the token) and still reach the right workspace.
 export function getWorkspaceToken(): string | null {
   const params = new URLSearchParams(window.location.search);
-  const token = params.get('w');
-  return token && token.length > 0 ? token : null;
+  const fromUrl = params.get('w');
+  if (fromUrl && fromUrl.length > 0) {
+    try {
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, fromUrl);
+    } catch {
+      // storage unavailable: URL token still works for this page load
+    }
+    return fromUrl;
+  }
+  try {
+    const stored = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    return stored && stored.length > 0 ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+// Put a remembered token back into the URL so in-app links (which copy the
+// current search string) and shared links keep working. Call once on boot.
+export function ensureTokenInUrl(): void {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('w')) return;
+  const token = getWorkspaceToken();
+  if (!token) return;
+  params.set('w', token);
+  const next = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+  window.history.replaceState(window.history.state, '', next);
 }
 
 export interface RequestOptions {

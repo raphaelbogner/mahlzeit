@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- D: Sprechblase mit Gabel (Sammelbestellung) -->
+  <rect width="512" height="512" rx="112" fill="#f97316"/>
+  <path d="M120 112h272a48 48 0 0 1 48 48v176a48 48 0 0 1-48 48H232l-72 64v-64h-40a48 48 0 0 1-48-48V160a48 48 0 0 1 48-48z" fill="#fff7ed"/>
+  <path d="M212 170v56a22 22 0 0 0 44 0v-56M234 170v150" fill="none" stroke="#f97316" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M312 170c-20 16-30 52-22 96l22 8v46" fill="none" stroke="#f97316" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

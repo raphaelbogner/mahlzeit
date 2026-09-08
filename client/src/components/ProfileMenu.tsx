@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { cleanIban, formatIban, isValidIban } from '../lib/iban';
 import { useProfile } from '../hooks/useProfile';
 import { useToast } from './Toast';
+import { BackupPanel } from './BackupPanel';
 
 export function ProfileMenu() {
   const { profile, updateProfile } = useProfile();
@@ -170,6 +171,10 @@ function EditProfileDialog({
               {errors.iban}
             </p>
           )}
+        </div>
+
+        <div className="mt-6 border-t border-stone-200 pt-5">
+          <BackupPanel compact />
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

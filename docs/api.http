@@ -459,3 +459,65 @@ Content-Type: application/json
   "user_id": "{{userId}}",
   "quantity": 21
 }
+
+### =====================================================================
+### Phase 1 – deadline_at + auto close (migration 007)
+### =====================================================================
+
+### Create a session with a deadline (ISO-8601, any offset; stored as UTC)
+POST {{host}}/api/sessions
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "Anna",
+  "title": "Pizza Freitag",
+  "deadline_at": "2026-09-08T11:30:00+02:00"
+}
+
+### Deadline in the past → 400 INVALID_FIELD
+POST {{host}}/api/sessions
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "user_name": "Anna",
+  "title": "Zu spät",
+  "deadline_at": "2020-01-01T10:00:00Z"
+}
+
+### Creator changes the deadline (open session only makes sense)
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "deadline_at": "2026-09-08T12:00:00+02:00"
+}
+
+### Remove the deadline
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "deadline_at": null
+}
+
+### Reopen after auto-close: clears deadline_at and auto_closed
+PATCH {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "{{userId}}",
+  "status": "open"
+}
+
+### Any GET closes overdue sessions first; check auto_closed / closed_at
+GET {{host}}/api/sessions/{{sessionId}}
+X-Workspace-Token: {{token}}

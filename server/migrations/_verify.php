@@ -10,6 +10,10 @@ echo "sessions.paid_by_*:\n";
 foreach ($pdo->query("SHOW COLUMNS FROM sessions LIKE 'paid_by_%'") as $r) {
     echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}  default=" . var_export($r['Default'], true) . "\n";
 }
+echo "\nsessions.deadline_at / auto_closed:\n";
+foreach ($pdo->query("SHOW COLUMNS FROM sessions WHERE Field IN ('deadline_at','auto_closed')") as $r) {
+    echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}  default=" . var_export($r['Default'], true) . "\n";
+}
 echo "\nsessions.discount_*:\n";
 foreach ($pdo->query("SHOW COLUMNS FROM sessions LIKE 'discount_%'") as $r) {
     echo "  - {$r['Field']}  {$r['Type']}  null={$r['Null']}  default=" . var_export($r['Default'], true) . "\n";

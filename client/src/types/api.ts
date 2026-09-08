@@ -28,7 +28,11 @@ export interface SessionSummary {
   title: string;
   restaurant_id: string | null;
   restaurant_name: string;
+  // Legacy free-text deadline (old sessions only). New sessions use deadline_at.
   deadline: string;
+  // ISO-8601 UTC ("...Z") or null.
+  deadline_at: string | null;
+  auto_closed: boolean;
   creator_id: string;
   creator_name: string;
   creator_iban: string;
@@ -108,6 +112,7 @@ export interface CreateSessionInput {
   restaurant_id?: string | null;
   restaurant_name?: string;
   deadline?: string;
+  deadline_at?: string | null;
   creator_iban?: string;
 }
 
@@ -117,6 +122,7 @@ export interface UpdateSessionInput {
   restaurant_id?: string | null;
   restaurant_name?: string;
   deadline?: string;
+  deadline_at?: string | null;
   creator_iban?: string;
   status?: SessionStatus;
   paid_by_user_id?: string | null;

@@ -44,8 +44,11 @@ function handle_sessions_route(string $method, array $segments, array $workspace
 
 function sessions_list(array $workspace): void
 {
+    auto_close_due_sessions((int)$workspace['id']);
+
     $stmt = db()->prepare(
         'SELECT s.id, s.title, s.restaurant_id, s.restaurant_name, s.deadline,
+                s.deadline_at, s.auto_closed,
                 s.creator_id, s.creator_name, s.creator_iban, s.status,
                 s.created_at, s.closed_at,
                 s.paid_by_user_id, s.paid_by_user_name, s.paid_by_iban,
@@ -69,7 +72,7 @@ function sessions_create(array $workspace): void
     reject_unknown_fields($body, [
         'user_id', 'user_name', 'title',
         'restaurant_id', 'restaurant_name',
-        'deadline', 'creator_iban',
+        'deadline', 'deadline_at', 'creator_iban',
     ]);
 
     $userId = require_string($body, 'user_id', 16, 16);
@@ -80,6 +83,7 @@ function sessions_create(array $workspace): void
     $title = require_string($body, 'title', 200);
     $restaurantName = optional_string($body, 'restaurant_name', 200);
     $deadline = optional_string($body, 'deadline', 50);
+    $deadlineAt = parse_deadline_at($body);
     $ibanRaw = optional_string($body, 'creator_iban', 34);
 
     $restaurantId = null;
@@ -105,10 +109,10 @@ function sessions_create(array $workspace): void
     $id = generate_id();
     $stmt = db()->prepare(
         'INSERT INTO sessions
-            (id, workspace_id, title, restaurant_id, restaurant_name, deadline,
+            (id, workspace_id, title, restaurant_id, restaurant_name, deadline, deadline_at,
              creator_id, creator_name, creator_iban, status)
          VALUES
-            (:id, :wid, :title, :rid, :rname, :deadline,
+            (:id, :wid, :title, :rid, :rname, :deadline, :deadline_at,
              :cid, :cname, :iban, "open")'
     );
     $stmt->execute([
@@ -118,6 +122,7 @@ function sessions_create(array $workspace): void
         ':rid'      => $restaurantId,
         ':rname'    => $restaurantName,
         ':deadline' => $deadline,
+        ':deadline_at' => $deadlineAt,
         ':cid'      => $userId,
         ':cname'    => $userName,
         ':iban'     => $iban,
@@ -155,7 +160,7 @@ function sessions_patch(array $workspace, string $id): void
     reject_unknown_fields($body, [
         'user_id', 'title',
         'restaurant_id', 'restaurant_name',
-        'deadline', 'creator_iban', 'status',
+        'deadline', 'deadline_at', 'creator_iban', 'status',
         'paid_by_user_id', 'paid_by_user_name', 'paid_by_iban',
         'discount_cents', 'discount_label',
     ]);
@@ -171,7 +176,7 @@ function sessions_patch(array $workspace, string $id): void
     // paid_by_user_name remain creator-only.
     $touchesCreatorOnlyFields = false;
     $creatorOnlyKeys = [
-        'title', 'restaurant_id', 'restaurant_name', 'deadline',
+        'title', 'restaurant_id', 'restaurant_name', 'deadline', 'deadline_at',
         'creator_iban', 'status', 'paid_by_user_id', 'paid_by_user_name',
     ];
     foreach ($creatorOnlyKeys as $k) {
@@ -226,6 +231,9 @@ function sessions_patch(array $workspace, string $id): void
     }
     if (array_key_exists('deadline', $body)) {
         $updates['deadline'] = optional_string($body, 'deadline', 50);
+    }
+    if (array_key_exists('deadline_at', $body)) {
+        $updates['deadline_at'] = parse_deadline_at($body);
     }
     if (array_key_exists('creator_iban', $body)) {
         $ibanRaw = optional_string($body, 'creator_iban', 34);
@@ -312,9 +320,18 @@ function sessions_patch(array $workspace, string $id): void
     }
     if (array_key_exists('status', $updates)) {
         if ($updates['status'] === 'closed') {
+            // Manual close: never flagged as automatic.
             $setParts[] = 'closed_at = CURRENT_TIMESTAMP';
+            $setParts[] = 'auto_closed = 0';
         } else {
+            // Reopening drops the deadline, otherwise the session would snap
+            // shut again on the next request. A new deadline_at in the same
+            // request wins over the reset.
             $setParts[] = 'closed_at = NULL';
+            $setParts[] = 'auto_closed = 0';
+            if (!array_key_exists('deadline_at', $updates)) {
+                $setParts[] = 'deadline_at = NULL';
+            }
         }
     }
 
@@ -347,8 +364,11 @@ function sessions_delete(array $workspace, string $id): void
 
 function load_session_or_404(array $workspace, string $id): array
 {
+    auto_close_due_sessions((int)$workspace['id']);
+
     $stmt = db()->prepare(
         'SELECT id, workspace_id, title, restaurant_id, restaurant_name, deadline,
+                deadline_at, auto_closed,
                 creator_id, creator_name, creator_iban, status, created_at, closed_at,
                 paid_by_user_id, paid_by_user_name, paid_by_iban,
                 discount_cents, discount_label
@@ -385,6 +405,8 @@ function format_session_row(array $row): array
         'restaurant_id'     => $row['restaurant_id'],
         'restaurant_name'   => $row['restaurant_name'],
         'deadline'          => $row['deadline'],
+        'deadline_at'       => format_utc_datetime($row['deadline_at'] ?? null),
+        'auto_closed'       => (bool)($row['auto_closed'] ?? 0),
         'creator_id'        => $row['creator_id'],
         'creator_name'      => $row['creator_name'],
         'creator_iban'      => $row['creator_iban'],
@@ -401,6 +423,52 @@ function format_session_row(array $row): array
         'priced_items_count' => isset($row['priced_count']) ? (int)$row['priced_count'] : null,
         'paid_items_count'   => isset($row['paid_count']) ? (int)$row['paid_count'] : null,
     ];
+}
+
+// Lazy auto-close: any read or write in a workspace first closes sessions
+// whose deadline has passed. The DB session runs in UTC (see shared/db.php),
+// so CURRENT_TIMESTAMP compares correctly with the UTC deadline_at values.
+function auto_close_due_sessions(int $workspaceId): void
+{
+    $stmt = db()->prepare(
+        'UPDATE sessions
+         SET status = "closed", closed_at = deadline_at, auto_closed = 1
+         WHERE workspace_id = :wid AND status = "open"
+           AND deadline_at IS NOT NULL AND deadline_at <= CURRENT_TIMESTAMP'
+    );
+    $stmt->execute([':wid' => $workspaceId]);
+}
+
+// deadline_at arrives as ISO-8601 (with offset or Z) or null. Returns a UTC
+// "Y-m-d H:i:s" string for the DB, or null. The value must be in the future.
+function parse_deadline_at(array $body): ?string
+{
+    if (!array_key_exists('deadline_at', $body) || $body['deadline_at'] === null || $body['deadline_at'] === '') {
+        return null;
+    }
+    $raw = $body['deadline_at'];
+    if (!is_string($raw) || strlen($raw) > 40) {
+        error_response(400, 'INVALID_FIELD', 'Field deadline_at must be an ISO-8601 string or null.');
+    }
+    try {
+        $dt = new DateTimeImmutable($raw);
+    } catch (Exception) {
+        error_response(400, 'INVALID_FIELD', 'Field deadline_at must be an ISO-8601 string or null.');
+    }
+    $utc = $dt->setTimezone(new DateTimeZone('UTC'));
+    if ($utc <= new DateTimeImmutable('now', new DateTimeZone('UTC'))) {
+        error_response(400, 'INVALID_FIELD', 'Field deadline_at must be in the future.');
+    }
+    return $utc->format('Y-m-d H:i:s');
+}
+
+// DB DATETIME (UTC) → "YYYY-MM-DDTHH:MM:SSZ" for the client.
+function format_utc_datetime(?string $value): ?string
+{
+    if ($value === null || $value === '') {
+        return null;
+    }
+    return str_replace(' ', 'T', $value) . 'Z';
 }
 
 function format_item_row(array $row): array

@@ -1,6 +1,7 @@
 import type { SessionSummary } from '../types/api';
 import { fmtPrice } from '../lib/price';
 import { WorkspaceLink } from './WorkspaceLink';
+import { DeadlineBadge } from './DeadlineBadge';
 
 export interface SessionListProps {
   sessions: SessionSummary[];
@@ -75,7 +76,15 @@ export function SessionList({ sessions, loading }: SessionListProps) {
                   )}
                   <p className="mt-1 help-xs">
                     von {s.creator_name} · {formatDate(s.created_at)}
-                    {s.deadline ? ` · bis ${s.deadline}` : ''}
+                  </p>
+                  <p className="mt-0.5 empty:hidden">
+                    <DeadlineBadge
+                      deadlineAt={s.deadline_at}
+                      deadlineText={s.deadline}
+                      status={s.status}
+                      autoClosed={s.auto_closed}
+                      compact
+                    />
                   </p>
                 </div>
                 <div className="shrink-0 text-right">

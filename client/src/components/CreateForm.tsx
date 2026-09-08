@@ -8,6 +8,7 @@ import type { Profile } from '../hooks/useProfile';
 import { useRestaurants } from '../hooks/useRestaurants';
 import { RestaurantCombobox } from './RestaurantCombobox';
 import type { RestaurantSelection } from './RestaurantCombobox';
+import { DeadlinePicker } from './DeadlinePicker';
 import { useToast } from './Toast';
 
 export interface CreateFormProps {
@@ -22,10 +23,10 @@ export function CreateForm({ profile, onCreated, onCancel }: CreateFormProps) {
     restaurant_id: null,
     restaurant_name: '',
   });
-  const [deadline, setDeadline] = useState<string>('');
+  const [deadlineAt, setDeadlineAt] = useState<Date | null>(null);
   const { restaurants } = useRestaurants();
   const [iban, setIban] = useState<string>(profile.iban ? formatIban(profile.iban) : '');
-  const [errors, setErrors] = useState<{ title?: string; iban?: string }>({});
+  const [errors, setErrors] = useState<{ title?: string; iban?: string; deadline?: string }>({});
   const [submitting, setSubmitting] = useState<boolean>(false);
   const { showError } = useToast();
 
@@ -33,10 +34,9 @@ export function CreateForm({ profile, onCreated, onCancel }: CreateFormProps) {
     e.preventDefault();
     const trimmedTitle = title.trim();
     const trimmedRestaurantName = restaurant.restaurant_name.trim();
-    const trimmedDeadline = deadline.trim();
     const cleanedIban = cleanIban(iban);
 
-    const next: { title?: string; iban?: string } = {};
+    const next: { title?: string; iban?: string; deadline?: string } = {};
     if (trimmedTitle.length === 0) {
       next.title = 'Bitte einen Titel eingeben.';
     } else if (trimmedTitle.length > 200) {
@@ -45,7 +45,10 @@ export function CreateForm({ profile, onCreated, onCancel }: CreateFormProps) {
     if (cleanedIban.length > 0 && !isValidIban(cleanedIban)) {
       next.iban = 'Diese IBAN ist ungültig.';
     }
-    if (next.title || next.iban) {
+    if (deadlineAt !== null && deadlineAt.getTime() <= Date.now()) {
+      next.deadline = 'Der Bestellschluss muss in der Zukunft liegen.';
+    }
+    if (next.title || next.iban || next.deadline) {
       setErrors(next);
       return;
     }
@@ -56,7 +59,7 @@ export function CreateForm({ profile, onCreated, onCancel }: CreateFormProps) {
       user_name: profile.user_name,
       title: trimmedTitle,
       restaurant_name: trimmedRestaurantName,
-      deadline: trimmedDeadline,
+      deadline_at: deadlineAt ? deadlineAt.toISOString() : null,
       creator_iban: cleanedIban,
     };
     if (restaurant.restaurant_id !== null) {
@@ -136,18 +139,18 @@ export function CreateForm({ profile, onCreated, onCancel }: CreateFormProps) {
       </div>
 
       <div>
-        <label htmlFor="deadline" className="label">
+        <span className="label">
           Bestellschluss <span className="font-normal text-stone-400">(optional)</span>
-        </label>
-        <input
-          id="deadline"
-          type="text"
-          value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
-          maxLength={50}
-          placeholder="z. B. heute 11:30"
-          className="input"
-        />
+        </span>
+        <DeadlinePicker value={deadlineAt} onChange={setDeadlineAt} disabled={submitting} />
+        {errors.deadline && (
+          <p className="field-error" role="alert">
+            {errors.deadline}
+          </p>
+        )}
+        <p className="mt-1 help-xs">
+          Nach dem Bestellschluss wird die Bestellung automatisch geschlossen.
+        </p>
       </div>
 
       <div>

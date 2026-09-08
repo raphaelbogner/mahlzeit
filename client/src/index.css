@@ -49,16 +49,32 @@
     @apply min-h-screen bg-stone-50;
   }
   .page-container {
-    @apply mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8;
+    @apply mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8 lg:max-w-6xl;
   }
   .page-container-wide {
-    @apply mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8;
+    @apply mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 lg:max-w-6xl;
+  }
+
+  /* ----- Desktop two-column layout (>= lg). Mobile stays single column. -----
+     Main column is fluid, side column fixed; the side column sticks below the
+     header and scrolls internally when taller than the viewport. */
+  .layout-2col {
+    @apply lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-8;
+  }
+  .layout-2col-left {
+    @apply lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:gap-8;
+  }
+  .layout-main {
+    @apply min-w-0 space-y-6;
+  }
+  .layout-side {
+    @apply mt-6 min-w-0 space-y-6 lg:mt-0;
   }
   .app-header {
     @apply sticky top-0 z-30 border-b border-stone-200/70 bg-white/80 backdrop-blur;
   }
   .app-header-inner {
-    @apply mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6;
+    @apply mx-auto flex max-w-2xl lg:max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6;
   }
   .brand {
     @apply flex items-center gap-2 text-base font-semibold tracking-tight text-stone-900;
@@ -182,5 +198,18 @@
   }
   .toast-success {
     @apply toast bg-emerald-600 text-white ring-emerald-700;
+  }
+}
+
+/* Sticky side column on desktop only. --header-h matches .app-header. */
+:root {
+  --header-h: 3.5rem;
+}
+@media (min-width: 1024px) {
+  .layout-side {
+    position: sticky;
+    top: calc(var(--header-h) + 1.5rem);
+    max-height: calc(100vh - var(--header-h) - 3rem);
+    overflow-y: auto;
   }
 }

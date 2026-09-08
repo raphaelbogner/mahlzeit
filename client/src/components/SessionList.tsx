@@ -39,7 +39,7 @@ export function SessionList({ sessions, loading }: SessionListProps) {
   }
 
   return (
-    <ul className="space-y-2.5">
+    <ul className="grid gap-2.5 lg:grid-cols-2">
       {sessions.map((s) => {
         const isOpen = s.status === 'open';
         const priced = s.priced_items_count ?? 0;
@@ -50,13 +50,15 @@ export function SessionList({ sessions, loading }: SessionListProps) {
         return (
           <li
             key={s.id}
-            className="group card transition hover:-translate-y-0.5 hover:shadow-pop hover:ring-orange-300"
+            className="group card h-full transition hover:-translate-y-0.5 hover:shadow-pop hover:ring-orange-300"
           >
-            <WorkspaceLink to={`/s/${s.id}`} className="block p-4 sm:p-5">
+            <WorkspaceLink to={`/s/${s.id}`} className="block h-full p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="truncate text-base font-semibold text-stone-900">{s.title}</h2>
+                    <h2 className="line-clamp-2 break-words text-base font-semibold text-stone-900">
+                      {s.title}
+                    </h2>
                     {isOpen ? (
                       <span className="badge-success">offen</span>
                     ) : (

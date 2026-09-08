@@ -9,7 +9,9 @@ import {
 } from '../api/restaurants';
 import { useOptionTemplates } from '../hooks/useOptionTemplates';
 import { useRestaurant } from '../hooks/useRestaurant';
+import { DESKTOP_QUERY, useMediaQuery } from '../hooks/useMediaQuery';
 import { generateId } from '../lib/ids';
+import { fmtPrice } from '../lib/price';
 import type {
   CreateOptionTemplateInput,
   Dish,
@@ -20,7 +22,7 @@ import type {
 } from '../types/api';
 import { DishEditor } from './DishEditor';
 import { ProfileMenu } from './ProfileMenu';
-import { SortableItem, SortableList } from './Sortable';
+import { DragHandle, SortableItem, SortableList } from './Sortable';
 import { useErrorToast, useToast } from './Toast';
 import { WorkspaceLink, useWorkspaceNavigate } from './WorkspaceLink';
 
@@ -185,6 +187,9 @@ export function RestaurantEditor() {
 
   const [saving, setSaving] = useState<boolean>(false);
   const [confirmingDelete, setConfirmingDelete] = useState<boolean>(false);
+  // Desktop: dish list on the left, one dish editor on the right.
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const [selectedDishId, setSelectedDishId] = useState<string | null>(null);
 
   if (loading && !restaurant) {
     return (
@@ -226,8 +231,11 @@ export function RestaurantEditor() {
   }
 
   function addDish(): void {
-    setDishes((current) => [...current, emptyDish()]);
-    // New dishes always start expanded so the user can fill them in.
+    const fresh = emptyDish();
+    setDishes((current) => [...current, fresh]);
+    // New dishes always start expanded so the user can fill them in; on
+    // desktop they become the selected dish.
+    setSelectedDishId(fresh.id);
   }
 
   function toggleCollapsed(id: string): void {
@@ -290,6 +298,26 @@ export function RestaurantEditor() {
     }
   }
 
+  // Desktop selection falls back to the first dish (also after a removal).
+  const selectedDish: DishInput | null =
+    dishes.find((d) => d.id === selectedDishId) ?? dishes[0] ?? null;
+
+  const nameCard = (
+    <div className="card-pad">
+      <label htmlFor="restaurant-name" className="label">
+        Restaurant-Name
+      </label>
+      <input
+        id="restaurant-name"
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={200}
+        className="input text-lg font-semibold"
+      />
+    </div>
+  );
+
   return (
     <div className="page pb-24">
       <header className="app-header">
@@ -333,20 +361,104 @@ export function RestaurantEditor() {
         </div>
       </header>
 
-      <form onSubmit={handleSave} className="page-container-wide space-y-5" noValidate>
-        <div className="card-pad">
-          <label htmlFor="restaurant-name" className="label">
-            Restaurant-Name
-          </label>
-          <input
-            id="restaurant-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={200}
-            className="input text-lg font-semibold"
-          />
+      {isDesktop ? (
+      <form onSubmit={handleSave} className="page-container-wide" noValidate>
+        <div className="layout-2col-left">
+          <aside className="layout-side">
+            {nameCard}
+
+            <section className="card-pad space-y-3">
+              <h2 className="h-card">
+                {dishes.length} {dishes.length === 1 ? 'Gericht' : 'Gerichte'}
+              </h2>
+              {dishes.length === 0 ? (
+                <p className="help-xs">Noch keine Gerichte.</p>
+              ) : (
+                <SortableList items={dishes} onReorder={setDishes}>
+                  <ul className="space-y-1">
+                    {dishes.map((d) => {
+                      const selected = selectedDish !== null && d.id === selectedDish.id;
+                      const displayName = d.name.trim() === '' ? 'Unbenanntes Gericht' : d.name;
+                      return (
+                        <SortableItem key={d.id} id={d.id}>
+                          {({ dragHandleProps }) => (
+                            <li
+                              className={
+                                'flex items-center gap-1 rounded-lg px-1 py-1 transition ' +
+                                (selected ? 'bg-orange-50 ring-1 ring-orange-200' : 'hover:bg-stone-50')
+                              }
+                            >
+                              <DragHandle handleProps={dragHandleProps} label="Gericht verschieben" />
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDishId(d.id)}
+                                aria-current={selected ? 'true' : undefined}
+                                className="flex min-w-0 flex-1 items-baseline gap-2 rounded-md px-1.5 py-1 text-left text-sm"
+                              >
+                                <span
+                                  className={
+                                    'truncate font-medium ' +
+                                    (d.name.trim() === '' ? 'text-stone-400' : 'text-stone-900')
+                                  }
+                                >
+                                  {displayName}
+                                </span>
+                                {d.is_vegetarian ? (
+                                  <span className="shrink-0" aria-label="Vegetarisch">
+                                    🌱
+                                  </span>
+                                ) : null}
+                                <span className="ml-auto shrink-0 text-xs text-stone-500 tabular-nums">
+                                  {fmtPrice(d.base_price_cents)}
+                                </span>
+                              </button>
+                            </li>
+                          )}
+                        </SortableItem>
+                      );
+                    })}
+                  </ul>
+                </SortableList>
+              )}
+              <button type="button" onClick={addDish} className="btn-dashed w-full">
+                + Gericht hinzufügen
+              </button>
+            </section>
+
+            <div className="card flex items-center justify-between gap-3 px-4 py-3">
+              <span className="help-xs">
+                {dirty ? 'Ungespeicherte Änderungen.' : 'Alles gespeichert.'}
+              </span>
+              <button type="submit" disabled={saving || !dirty} className="btn-primary">
+                {saving ? 'Speichert…' : 'Speichern'}
+              </button>
+            </div>
+          </aside>
+
+          <div className="layout-main">
+            {selectedDish ? (
+              <DishEditor
+                key={selectedDish.id}
+                dish={selectedDish}
+                collapsed={false}
+                onToggleCollapsed={() => undefined}
+                onChange={(next) => updateDish(selectedDish.id, { ...next, id: selectedDish.id })}
+                onRemove={() => removeDish(selectedDish.id)}
+                templates={templates}
+                onSaveAsTemplate={handleSaveTemplate}
+                onDeleteTemplate={handleDeleteTemplate}
+              />
+            ) : (
+              <div className="empty">
+                Noch keine Gerichte. Klick „+ Gericht hinzufügen", um eines anzulegen.
+              </div>
+            )}
+          </div>
         </div>
+      </form>
+      ) : (
+      <form onSubmit={handleSave} className="page-container-wide space-y-5" noValidate>
+        {nameCard}
 
         <section className="space-y-3">
           {dishes.length > 1 ? (
@@ -402,6 +514,7 @@ export function RestaurantEditor() {
           </button>
         </div>
       </form>
+      )}
     </div>
   );
 }

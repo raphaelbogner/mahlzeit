@@ -176,7 +176,9 @@ export function SessionDetail({ profile }: SessionDetailProps) {
         </div>
       </header>
 
-      <main className="page-container space-y-6">
+      <main className="page-container">
+        <div className="layout-2col">
+        <div className="layout-main">
         <header className="card-pad">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -350,11 +352,17 @@ export function SessionDetail({ profile }: SessionDetailProps) {
           </p>
         )}
 
-        <Summary
-          session={session}
-          profile={profile}
-          onSessionChanged={(next) => setSession(next)}
-        />
+        </div>
+
+        {/* Desktop: sticky right column; mobile: below the entries. */}
+        <aside className="layout-side">
+          <Summary
+            session={session}
+            profile={profile}
+            onSessionChanged={(next) => setSession(next)}
+          />
+        </aside>
+        </div>
       </main>
     </div>
   );

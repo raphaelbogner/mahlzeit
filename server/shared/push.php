@@ -249,9 +249,9 @@ function push_send_outbox(int $limit = 100): array
         );
     }
 
-    $markSent   = $pdo->prepare('UPDATE push_outbox SET sent_at = CURRENT_TIMESTAMP, attempts = attempts + 1 WHERE id = :id');
+    $markSent   = $pdo->prepare('UPDATE push_outbox SET sent_at = UTC_TIMESTAMP(), attempts = attempts + 1 WHERE id = :id');
     $markFailed = $pdo->prepare('UPDATE push_outbox SET attempts = attempts + 1, last_error = :err WHERE id = :id');
-    $subOk      = $pdo->prepare('UPDATE push_subscriptions SET last_success_at = CURRENT_TIMESTAMP, fail_count = 0 WHERE id = :id');
+    $subOk      = $pdo->prepare('UPDATE push_subscriptions SET last_success_at = UTC_TIMESTAMP(), fail_count = 0 WHERE id = :id');
     $subFail    = $pdo->prepare('UPDATE push_subscriptions SET fail_count = fail_count + 1 WHERE id = :id');
     $subDelete  = $pdo->prepare('DELETE FROM push_subscriptions WHERE id = :id');
 

@@ -365,15 +365,15 @@ function items_patch(array $session, string $itemId): void
         if (!is_bool($paid)) {
             error_response(400, 'INVALID_FIELD', 'Field paid must be a boolean.');
         }
-        // Use SQL CURRENT_TIMESTAMP for set, or NULL for unset. Not a placeholder.
+        // Use SQL UTC_TIMESTAMP() for set, or NULL for unset. Not a placeholder.
         // Resetting to unpaid also clears a pending "reported" flag.
         $setParts[] = $paid
-            ? 'paid_at = CURRENT_TIMESTAMP'
+            ? 'paid_at = UTC_TIMESTAMP()'
             : 'paid_at = NULL, payment_reported_at = NULL';
     }
     if ($touchesReported) {
         $setParts[] = $body['reported']
-            ? 'payment_reported_at = CURRENT_TIMESTAMP'
+            ? 'payment_reported_at = UTC_TIMESTAMP()'
             : 'payment_reported_at = NULL';
     }
 
@@ -416,7 +416,7 @@ function items_mark_person_paid(array $session): void
     }
 
     $sql = $body['paid']
-        ? 'UPDATE items SET paid_at = CURRENT_TIMESTAMP
+        ? 'UPDATE items SET paid_at = UTC_TIMESTAMP()
            WHERE session_id = :sid AND user_id = :uid AND price_cents IS NOT NULL AND paid_at IS NULL'
         : 'UPDATE items SET paid_at = NULL, payment_reported_at = NULL
            WHERE session_id = :sid AND user_id = :uid AND price_cents IS NOT NULL';
@@ -449,7 +449,7 @@ function items_report_own_payment(array $session): void
     }
 
     $stmt = db()->prepare(
-        'UPDATE items SET payment_reported_at = ' . ($body['reported'] ? 'CURRENT_TIMESTAMP' : 'NULL') . '
+        'UPDATE items SET payment_reported_at = ' . ($body['reported'] ? 'UTC_TIMESTAMP()' : 'NULL') . '
          WHERE session_id = :sid AND user_id = :uid AND price_cents IS NOT NULL AND paid_at IS NULL'
     );
     $stmt->execute([':sid' => $session['id'], ':uid' => $userId]);

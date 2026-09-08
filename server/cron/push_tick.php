@@ -35,18 +35,18 @@ $due = $pdo->query(
     'SELECT s.id, s.workspace_id, s.title, s.deadline_at, w.token
      FROM sessions s JOIN workspaces w ON w.id = s.workspace_id
      WHERE s.status = "open" AND s.deadline_at IS NOT NULL AND s.deadline_notified_at IS NULL
-       AND s.deadline_at > CURRENT_TIMESTAMP
-       AND s.deadline_at <= CURRENT_TIMESTAMP + INTERVAL 15 MINUTE'
+       AND s.deadline_at > UTC_TIMESTAMP()
+       AND s.deadline_at <= UTC_TIMESTAMP() + INTERVAL 15 MINUTE'
 )->fetchAll();
 
 $known = $pdo->prepare(
     'SELECT DISTINCT i.user_id
      FROM items i JOIN sessions s ON s.id = i.session_id
-     WHERE s.workspace_id = :wid AND i.added_at >= CURRENT_TIMESTAMP - INTERVAL 60 DAY'
+     WHERE s.workspace_id = :wid AND i.added_at >= UTC_TIMESTAMP() - INTERVAL 60 DAY'
 );
 $ordered  = $pdo->prepare('SELECT DISTINCT user_id FROM items WHERE session_id = :sid');
 $declined = $pdo->prepare('SELECT user_id FROM session_declines WHERE session_id = :sid');
-$flag     = $pdo->prepare('UPDATE sessions SET deadline_notified_at = CURRENT_TIMESTAMP WHERE id = :id');
+$flag     = $pdo->prepare('UPDATE sessions SET deadline_notified_at = UTC_TIMESTAMP() WHERE id = :id');
 
 $warned = 0;
 foreach ($due as $s) {
@@ -79,14 +79,14 @@ $open = $pdo->query(
      JOIN sessions s ON s.id = i.session_id
      JOIN workspaces w ON w.id = s.workspace_id
      WHERE s.status = "closed" AND s.archived_at IS NULL
-       AND s.closed_at <= CURRENT_TIMESTAMP - INTERVAL 3 DAY
+       AND s.closed_at <= UTC_TIMESTAMP() - INTERVAL 3 DAY
        AND i.price_cents IS NOT NULL AND i.paid_at IS NULL
        AND i.payment_reported_at IS NULL AND i.reminder_sent_at IS NULL
      GROUP BY s.id, i.user_id'
 )->fetchAll();
 
 $markReminded = $pdo->prepare(
-    'UPDATE items SET reminder_sent_at = CURRENT_TIMESTAMP
+    'UPDATE items SET reminder_sent_at = UTC_TIMESTAMP()
      WHERE session_id = :sid AND user_id = :uid AND paid_at IS NULL AND reminder_sent_at IS NULL'
 );
 $reminded = 0;

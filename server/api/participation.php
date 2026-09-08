@@ -36,7 +36,7 @@ function handle_participation_route(string $method, array $workspace, string $se
          FROM items i
          JOIN sessions s ON s.id = i.session_id
          WHERE s.workspace_id = :wid
-           AND i.added_at >= CURRENT_TIMESTAMP - INTERVAL ' . KNOWN_USER_WINDOW_DAYS . ' DAY
+           AND i.added_at >= UTC_TIMESTAMP() - INTERVAL ' . KNOWN_USER_WINDOW_DAYS . ' DAY
          ORDER BY i.added_at DESC'
     );
     $known->execute([':wid' => $workspace['id']]);
@@ -90,7 +90,7 @@ function handle_decline_route(string $method, array $workspace, string $sessionI
         $stmt = db()->prepare(
             'INSERT INTO session_declines (session_id, user_id, user_name)
              VALUES (:sid, :uid, :uname)
-             ON DUPLICATE KEY UPDATE user_name = VALUES(user_name), declined_at = CURRENT_TIMESTAMP'
+             ON DUPLICATE KEY UPDATE user_name = VALUES(user_name), declined_at = UTC_TIMESTAMP()'
         );
         $stmt->execute([':sid' => $session['id'], ':uid' => $userId, ':uname' => $userName]);
         json_response(200, ['declined' => true]);

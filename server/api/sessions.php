@@ -394,7 +394,7 @@ function sessions_patch(array $workspace, string $id): void
         $params[":{$col}"] = $val;
     }
     if ($archiveChange === true) {
-        $setParts[] = 'archived_at = CURRENT_TIMESTAMP';
+        $setParts[] = 'archived_at = UTC_TIMESTAMP()';
         $setParts[] = 'archived_by_user_id = :archived_by';
         $params[':archived_by'] = $userId;
     } elseif ($archiveChange === false) {
@@ -404,7 +404,7 @@ function sessions_patch(array $workspace, string $id): void
     if (array_key_exists('status', $updates)) {
         if ($updates['status'] === 'closed') {
             // Manual close: never flagged as automatic.
-            $setParts[] = 'closed_at = CURRENT_TIMESTAMP';
+            $setParts[] = 'closed_at = UTC_TIMESTAMP()';
             $setParts[] = 'auto_closed = 0';
         } else {
             // Reopening drops the deadline, otherwise the session would snap
@@ -518,7 +518,7 @@ function format_session_row(array $row): array
 //   1. close sessions whose deadline passed (flagged auto_closed)
 //   2. close sessions that have been open for 30 days (forgotten)
 //   3. archive sessions closed 30+ days ago with nothing left to pay
-// The DB session runs in UTC (see shared/db.php), so CURRENT_TIMESTAMP
+// The DB session runs in UTC (see shared/db.php), so UTC_TIMESTAMP()
 // compares correctly with the stored UTC values.
 function apply_housekeeping(int $workspaceId): void
 {
@@ -527,15 +527,15 @@ function apply_housekeeping(int $workspaceId): void
     $staleIds = select_ids(
         'SELECT id FROM sessions
          WHERE workspace_id = :wid AND status = "open"
-           AND created_at <= CURRENT_TIMESTAMP - INTERVAL 30 DAY',
+           AND created_at <= UTC_TIMESTAMP() - INTERVAL 30 DAY',
         [':wid' => $workspaceId]
     );
     if ($staleIds !== []) {
         $stale = db()->prepare(
             'UPDATE sessions
-             SET status = "closed", closed_at = CURRENT_TIMESTAMP, auto_closed = 1
+             SET status = "closed", closed_at = UTC_TIMESTAMP(), auto_closed = 1
              WHERE workspace_id = :wid AND status = "open"
-               AND created_at <= CURRENT_TIMESTAMP - INTERVAL 30 DAY'
+               AND created_at <= UTC_TIMESTAMP() - INTERVAL 30 DAY'
         );
         $stale->execute([':wid' => $workspaceId]);
         foreach ($staleIds as $sid) {
@@ -545,10 +545,10 @@ function apply_housekeeping(int $workspaceId): void
 
     $archive = db()->prepare(
         'UPDATE sessions s
-         SET s.archived_at = CURRENT_TIMESTAMP, s.archived_by_user_id = NULL
+         SET s.archived_at = UTC_TIMESTAMP(), s.archived_by_user_id = NULL
          WHERE s.workspace_id = :wid AND s.status = "closed" AND s.archived_at IS NULL
            AND s.closed_at IS NOT NULL
-           AND s.closed_at <= CURRENT_TIMESTAMP - INTERVAL 30 DAY
+           AND s.closed_at <= UTC_TIMESTAMP() - INTERVAL 30 DAY
            AND NOT EXISTS (
                SELECT 1 FROM items i
                WHERE i.session_id = s.id AND i.price_cents IS NOT NULL AND i.paid_at IS NULL
@@ -562,7 +562,7 @@ function auto_close_due_sessions(int $workspaceId): void
     $dueIds = select_ids(
         'SELECT id FROM sessions
          WHERE workspace_id = :wid AND status = "open"
-           AND deadline_at IS NOT NULL AND deadline_at <= CURRENT_TIMESTAMP',
+           AND deadline_at IS NOT NULL AND deadline_at <= UTC_TIMESTAMP()',
         [':wid' => $workspaceId]
     );
     if ($dueIds === []) {
@@ -572,7 +572,7 @@ function auto_close_due_sessions(int $workspaceId): void
         'UPDATE sessions
          SET status = "closed", closed_at = deadline_at, auto_closed = 1
          WHERE workspace_id = :wid AND status = "open"
-           AND deadline_at IS NOT NULL AND deadline_at <= CURRENT_TIMESTAMP'
+           AND deadline_at IS NOT NULL AND deadline_at <= UTC_TIMESTAMP()'
     );
     $stmt->execute([':wid' => $workspaceId]);
     foreach ($dueIds as $sid) {

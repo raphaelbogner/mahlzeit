@@ -102,3 +102,13 @@ was entschieden wurde, warum, und wo man es ändert.
 - 5 bestehende ESLint-Fehler (`react-refresh/only-export-components` in
   `Toast.tsx`, `WorkspaceLink.tsx`, `useProfile.tsx`; `set-state-in-effect`
   in `useProfile.tsx`). Waren vor dieser Arbeit da, blockieren nichts.
+
+## Zeitzonen
+
+- Alle SQL-Zeitvergleiche und -Zuweisungen nutzen `UTC_TIMESTAMP()` statt
+  `CURRENT_TIMESTAMP`, damit sie unabhängig von der MySQL-Sitzungszeitzone in
+  UTC laufen (Deadlines sind UTC gespeichert, der Client hängt `Z` an).
+- Spalten-Defaults (`created_at`, `added_at`) hängen weiter an der Sitzungs-
+  zeitzone, die `shared/db.php` auf `+00:00` setzt. Falls Erstellzeiten in der
+  App um 2 h verschoben erscheinen, greift dieses `SET time_zone` auf dem Hoster
+  nicht → dann melden.

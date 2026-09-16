@@ -1,8 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getPushConfig, sendTestPush } from '../api/push';
 import { ApiError } from '../api/client';
 import { useProfile } from '../hooks/useProfile';
-import { getPushState, pushSupported, subscribePush, unsubscribePush } from '../lib/push';
+import {
+  getPushState,
+  pushSupported,
+  subscribePush,
+  syncPushSubscription,
+  unsubscribePush,
+} from '../lib/push';
 import type { PushState } from '../lib/push';
 import { useToast } from './Toast';
 
@@ -45,6 +51,23 @@ export function PushToggle() {
       controller.abort();
     };
   }, []);
+
+  // An existing browser subscription is re-sent to the server once per mount
+  // so a row the server dropped (delivery failures, profile import on another
+  // device) comes back without the user toggling off and on.
+  const userId = profile?.user_id ?? null;
+  const syncedRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (state !== 'subscribed' || userId === null || syncedRef.current) return;
+    syncedRef.current = true;
+    syncPushSubscription(userId).catch((err: unknown) => {
+      showError(
+        err instanceof ApiError
+          ? `Benachrichtigungen konnten nicht am Server registriert werden: ${err.message}`
+          : 'Benachrichtigungen konnten nicht am Server registriert werden.',
+      );
+    });
+  }, [state, userId, showError]);
 
   if (!profile || state === 'loading' || state === 'unsupported') return null;
 

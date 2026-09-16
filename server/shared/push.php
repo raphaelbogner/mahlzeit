@@ -98,6 +98,18 @@ function push_fmt_eur(int $cents): string
 
 // ----- Event helpers (called from the API; never throw) -----
 
+// Deliver freshly queued event notifications within the request so they do
+// not depend on the cron (which is only needed for the time-based ones and
+// for retries). Bounded so a large workspace cannot stall the response.
+function push_flush_now(int $limit = 50): void
+{
+    try {
+        push_send_outbox($limit);
+    } catch (Throwable $e) {
+        error_log('push inline send failed: ' . $e->getMessage());
+    }
+}
+
 function notify_session_created(array $workspace, array $session): void
 {
     try {
@@ -117,6 +129,7 @@ function notify_session_created(array $workspace, array $session): void
             'url'   => push_session_url($workspace, $session['id']),
             'tag'   => 'session-open-' . $session['id'],
         ], $session['creator_id']);
+        push_flush_now();
     } catch (Throwable $e) {
         error_log('push notify_session_created failed: ' . $e->getMessage());
     }
@@ -164,6 +177,7 @@ function notify_session_closed(int $workspaceId, string $sessionId): void
                 'tag'   => 'session-closed-' . $sessionId,
             ]);
         }
+        push_flush_now();
     } catch (Throwable $e) {
         error_log('push notify_session_closed failed: ' . $e->getMessage());
     }
@@ -186,6 +200,7 @@ function notify_payment_confirmed(array $session, string $userId): void
             'url'   => push_session_url($workspace, $session['id']),
             'tag'   => 'paid-' . $session['id'],
         ]);
+        push_flush_now();
     } catch (Throwable $e) {
         error_log('push notify_payment_confirmed failed: ' . $e->getMessage());
     }

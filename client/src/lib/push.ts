@@ -21,9 +21,32 @@ export function urlBase64ToUint8Array(base64: string): Uint8Array {
   return out;
 }
 
+const READY_TIMEOUT_MS = 4000;
+
+// The app's service worker registration. Looked up by its scope (not the
+// page URL) and, when it is still installing on a cold start, awaited via
+// `ready` for a bounded time. Returning null too eagerly made the toggle
+// read "off" although the browser still held a live subscription.
 async function registration(): Promise<ServiceWorkerRegistration | null> {
   if (!pushSupported()) return null;
-  return (await navigator.serviceWorker.getRegistration()) ?? null;
+  const scope = import.meta.env.BASE_URL;
+  const direct =
+    (await navigator.serviceWorker.getRegistration(scope)) ??
+    (await navigator.serviceWorker.getRegistration());
+  if (direct) return direct;
+  return new Promise<ServiceWorkerRegistration | null>((resolve) => {
+    const timer = window.setTimeout(() => resolve(null), READY_TIMEOUT_MS);
+    navigator.serviceWorker.ready.then(
+      (reg) => {
+        window.clearTimeout(timer);
+        resolve(reg);
+      },
+      () => {
+        window.clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
 }
 
 export async function getPushState(): Promise<PushState> {
@@ -33,6 +56,26 @@ export async function getPushState(): Promise<PushState> {
   if (!reg) return 'unsubscribed';
   const sub = await reg.pushManager.getSubscription();
   return sub ? 'subscribed' : 'unsubscribed';
+}
+
+// Re-send the browser's current subscription to the server. The server drops
+// rows after repeated delivery failures or a 404/410 from the push service,
+// and the browser has no way of knowing — so the switch would show "on"
+// while nothing arrives. Called whenever the toggle finds an active
+// subscription. Returns false when there is nothing to sync.
+export async function syncPushSubscription(userId: string): Promise<boolean> {
+  const reg = await registration();
+  const sub = reg ? await reg.pushManager.getSubscription() : null;
+  if (!sub) return false;
+  const json = sub.toJSON();
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return false;
+  await savePushSubscription({
+    user_id: userId,
+    endpoint: json.endpoint,
+    keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+    user_agent: navigator.userAgent,
+  });
+  return true;
 }
 
 export async function subscribePush(publicKey: string, userId: string): Promise<PushState> {

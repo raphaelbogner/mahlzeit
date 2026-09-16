@@ -22,10 +22,23 @@ vorhanden (VAPID-Signatur). Fehlt Composer auf dem Server: lokal ausführen
 
 ## 1. Abhängigkeiten
 
+`deploy/build.sh` installiert `server/vendor/` automatisch, wenn es fehlt
+oder älter als `composer.lock` ist — mit lokalem Composer, sonst über das
+Docker-Image `composer:2`. Es ist also nichts von Hand zu tun; ohne Composer
+und ohne Docker bricht der Build mit einer klaren Meldung ab.
+
+Manuell (z. B. nach einem Update der Abhängigkeiten in `composer.json`):
+
 ```bash
 cd server
 composer install --no-dev --optimize-autoloader
+# oder ohne lokales PHP, aus dem Repo-Root in Git Bash:
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(cygpath -m "$PWD")/server:/app" composer:2 \
+  install --no-dev --optimize-autoloader --ignore-platform-reqs --no-interaction
 ```
+
+`server/vendor/` ist gitignored, `composer.lock` ist eingecheckt. Der Server
+braucht PHP >= 8.2 (hPanel → PHP-Konfiguration).
 
 ## 2. VAPID-Schlüssel erzeugen
 
@@ -58,11 +71,27 @@ HTTP-Zugriff auf `cron/`, `vendor/` und `composer.*`.
 ## 5. Cron-Job (hPanel → Erweitert → Cron-Jobs)
 
 ```
-* * * * * php /home/<user>/public_html/cron/push_tick.php >/dev/null 2>&1
+* * * * * /usr/bin/php /home/<user>/domains/<domain>/public_html/cron/push_tick.php >> /home/<user>/push_tick.log 2>&1
 ```
 
 Minutentakt ist ideal (Bestellschluss-Warnung genau bei 15 min). Erlaubt der
 Plan nur alle 5 Minuten, kommt die Warnung bis zu 5 Minuten früher.
+
+**Pfad:** Cron-Jobs gelten bei Hostinger für den ganzen Account, nicht pro
+Website. `/home/<user>/public_html/` ist nur das Root der *Hauptdomain*; jede
+weitere Domain liegt unter `/home/<user>/domains/<domain>/public_html/`. Den
+exakten Pfad zeigt der Dateimanager im hPanel (Pfad oben in der Leiste) oder
+per SSH `pwd` im Ordner mit `config.php`. Stimmt der Pfad nicht, läuft der
+Cron still ins Leere — deshalb die Ausgabe zunächst in eine Log-Datei
+schreiben und nach ein, zwei Minuten prüfen (`tail push_tick.log`):
+Erwartet ist pro Lauf eine Zeile wie
+`deadline-warnings=0 reminders=0 sent=0 failed=0 removed=0`.
+Sobald es läuft, kann das Log wieder auf `>/dev/null` gestellt werden.
+
+Ohne funktionierenden Cron kommen die ereignisbasierten Pushes (neue Session,
+geschlossen, Zahlung bestätigt) trotzdem an — sie werden seit dem Fix direkt
+in der Anfrage zugestellt. Der Cron ist nur für „Bestellschluss in 15 min“,
+„Noch offen“ und für Wiederholversuche nötig.
 
 ## 6. Test
 

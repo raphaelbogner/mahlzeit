@@ -25,3 +25,6 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# PHP deps (composer install in server/, see docs/PUSH_SETUP.md)
+server/vendor/

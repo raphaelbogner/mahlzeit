@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // Push cron. Run every minute (5 minutes also works, the deadline warning
 // then lands a bit earlier/later):
-//   * * * * * php /home/<user>/public_html/cron/push_tick.php >/dev/null 2>&1
+//   * * * * * /usr/bin/php /home/<user>/domains/<domain>/public_html/cron/push_tick.php >/dev/null 2>&1
 //
 //  1. "Bestellschluss in 15 min" → known people who have not ordered and
 //     did not decline (once per session, flag deadline_notified_at)

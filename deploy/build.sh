@@ -70,13 +70,39 @@ if [ -d "${ROOT}/server/migrations" ]; then
   done
 fi
 
-# Push: cron scripts + composer deps (vendor/ exists only after
-# `composer install` in server/; without it push stays disabled).
+# Push: cron scripts + composer deps. server/vendor/ is gitignored and only
+# (re)installed when missing or older than composer.lock — via a local
+# composer if present, otherwise through the composer Docker image. Without
+# vendor/ every push delivery fails with "vendor/autoload.php missing".
+ensure_vendor() {
+  local server="${ROOT}/server"
+  local autoload="${server}/vendor/autoload.php"
+  if [ -f "${autoload}" ] && [ ! "${server}/composer.lock" -nt "${autoload}" ]; then
+    return 0
+  fi
+  step "Installing PHP dependencies (server/vendor/)"
+  if command -v composer >/dev/null 2>&1; then
+    ( cd "${server}" && composer install --no-dev --optimize-autoloader --no-interaction )
+  elif command -v docker >/dev/null 2>&1; then
+    # Git Bash: hand Docker a Windows path (C:/...) and stop MSYS from
+    # rewriting the /app side of the mount.
+    local mount="${server}"
+    if command -v cygpath >/dev/null 2>&1; then mount="$(cygpath -m "${server}")"; fi
+    MSYS_NO_PATHCONV=1 docker run --rm -v "${mount}:/app" composer:2 \
+      install --no-dev --optimize-autoloader --ignore-platform-reqs --no-interaction
+  else
+    echo "Neither composer nor docker found - cannot install server/vendor/." >&2
+    echo "See docs/PUSH_SETUP.md, section 1." >&2
+    exit 1
+  fi
+  [ -f "${autoload}" ] || { echo "composer install did not produce ${autoload}" >&2; exit 1; }
+}
+ensure_vendor
+
 cp -R "${ROOT}/server/cron" "${OUTPUT}/cron"
 cp "${ROOT}/server/composer.json" "${OUTPUT}/composer.json"
-if [ -d "${ROOT}/server/vendor" ]; then
-  cp -R "${ROOT}/server/vendor" "${OUTPUT}/vendor"
-fi
+cp "${ROOT}/server/composer.lock" "${OUTPUT}/composer.lock"
+cp -R "${ROOT}/server/vendor" "${OUTPUT}/vendor"
 
 step "Writing combined .htaccess"
 cat > "${OUTPUT}/.htaccess" <<'HTACCESS'

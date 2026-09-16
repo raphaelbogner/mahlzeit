@@ -116,6 +116,45 @@ describe('resolveSuggestion', () => {
       resolveSuggestion([dish], suggestion({ kind: 'freetext', dish_id: null, dish: 'Suppe' })).status,
     ).toBe('freetext');
   });
+
+  it('re-links an orphaned snapshot (dish_id null after a menu edit) by dish name and uses the current price', () => {
+    const r = resolveSuggestion(
+      [dish],
+      suggestion({
+        kind: 'freetext',
+        dish_id: null,
+        dish: ' dürüm ',
+        price_cents: 800,
+        options: [
+          { group: 'Schärfe', name: 'scharf', delta_cents: 0 },
+          { group: 'Extras', name: 'Käse', delta_cents: 100 },
+        ],
+      }),
+    );
+    expect(r.status).toBe('exact');
+    if (r.status !== 'exact') return;
+    expect(r.dish.id).toBe(dish.id);
+    expect(r.optionIds).toEqual(['opt0000000000002', 'opt0000000000003']);
+    expect(r.priceCents).toBe(650);
+  });
+
+  it('re-links by name when the stored dish_id no longer exists', () => {
+    const r = resolveSuggestion([dish], suggestion({ dish_id: 'gone000000000000', options: [{ group: 'Schärfe', name: 'mild', delta_cents: 0 }] }));
+    expect(r.status).toBe('exact');
+  });
+
+  it('treats an orphaned snapshot with options but no matching dish as missing, not freetext', () => {
+    const r = resolveSuggestion(
+      [dish],
+      suggestion({
+        kind: 'freetext',
+        dish_id: null,
+        dish: 'Lahmacun',
+        options: [{ group: 'Extras', name: 'Käse', delta_cents: 50 }],
+      }),
+    );
+    expect(r.status).toBe('missing');
+  });
 });
 
 describe('formatSnapshotOptions', () => {

@@ -11,10 +11,11 @@ const MENU_MAX_OPTIONS = 2000;
 const MENU_MAX_GROUPS_PER_DISH = 20;
 const MENU_MAX_OPTIONS_PER_GROUP = 50;
 
-// Bulk replace of a restaurant's full menu. The whole tree (dishes →
-// option_groups → options) is dropped and re-inserted in one transaction.
-// Existing dish_id references in items are preserved through ON DELETE
-// SET NULL on items.dish_id; old items keep their snapshotted name/price.
+// Bulk replace of a restaurant's full menu in one transaction. Dishes that
+// arrive with the id of an existing dish of this restaurant are updated in
+// place so items.dish_id (reorder suggestions) and dish_favorites keep
+// pointing at them; everything else is dropped and re-inserted. Option
+// groups/options always get fresh ids — item snapshots resolve them by name.
 function menu_replace(array $workspace, string $restaurantId): void
 {
     $restaurant = load_restaurant_or_404($workspace, $restaurantId);
@@ -41,6 +42,17 @@ function menu_replace(array $workspace, string $restaurantId): void
         foreach (array_keys($dish) as $k) {
             if (!in_array($k, $allowedDish, true)) {
                 error_response(400, 'UNKNOWN_FIELD', "Unknown field on dish #{$dishIdx}: {$k}");
+            }
+        }
+        // Optional: id of the dish this entry replaces. Unknown ids (client
+        // temp ids) are treated as "new dish" further down.
+        $keepId = null;
+        if (array_key_exists('id', $dish) && $dish['id'] !== null) {
+            if (!is_string($dish['id'])) {
+                error_response(400, 'INVALID_FIELD', "Dish #{$dishIdx} id must be a string.");
+            }
+            if (is_valid_id($dish['id'])) {
+                $keepId = $dish['id'];
             }
         }
         if (!isset($dish['name']) || !is_string($dish['name'])) {
@@ -183,6 +195,7 @@ function menu_replace(array $workspace, string $restaurantId): void
         }
 
         $normalized[] = [
+            'id'               => $keepId,
             'name'             => $name,
             'category'         => $category,
             'description'      => $description,
@@ -201,12 +214,43 @@ function menu_replace(array $workspace, string $restaurantId): void
     $pdo = db();
     $pdo->beginTransaction();
     try {
-        $del = $pdo->prepare('DELETE FROM dishes WHERE restaurant_id = :rid');
-        $del->execute([':rid' => $restaurant['id']]);
+        $existingStmt = $pdo->prepare('SELECT id FROM dishes WHERE restaurant_id = :rid FOR UPDATE');
+        $existingStmt->execute([':rid' => $restaurant['id']]);
+        $existing = array_fill_keys(array_column($existingStmt->fetchAll(), 'id'), true);
+
+        // Keep an id only if it belongs to this restaurant and appears once.
+        $keep = [];
+        foreach ($normalized as $i => $d) {
+            $id = $d['id'];
+            if ($id !== null && isset($existing[$id]) && !isset($keep[$id])) {
+                $keep[$id] = true;
+            } else {
+                $normalized[$i]['id'] = null;
+            }
+        }
+
+        if ($keep === []) {
+            $del = $pdo->prepare('DELETE FROM dishes WHERE restaurant_id = :rid');
+            $del->execute([':rid' => $restaurant['id']]);
+        } else {
+            $keepIds = array_keys($keep);
+            $ph = implode(',', array_fill(0, count($keepIds), '?'));
+            $del = $pdo->prepare("DELETE FROM dishes WHERE restaurant_id = ? AND id NOT IN ({$ph})");
+            $del->execute([$restaurant['id'], ...$keepIds]);
+            // Groups/options of kept dishes are rebuilt from the payload below.
+            $delGroups = $pdo->prepare("DELETE FROM dish_option_groups WHERE dish_id IN ({$ph})");
+            $delGroups->execute($keepIds);
+        }
 
         $insertDish = $pdo->prepare(
             'INSERT INTO dishes (id, restaurant_id, name, category, description, base_price_cents, is_vegetarian, sort_order)
              VALUES (:id, :rid, :name, :category, :description, :price, :veg, :sort)'
+        );
+        $updateDish = $pdo->prepare(
+            'UPDATE dishes
+             SET name = :name, category = :category, description = :description,
+                 base_price_cents = :price, is_vegetarian = :veg, sort_order = :sort
+             WHERE id = :id AND restaurant_id = :rid'
         );
         $insertGroup = $pdo->prepare(
             'INSERT INTO dish_option_groups (id, dish_id, name, selection_type, max_select, sort_order)
@@ -218,8 +262,8 @@ function menu_replace(array $workspace, string $restaurantId): void
         );
 
         foreach ($normalized as $d) {
-            $dishId = generate_id();
-            $insertDish->execute([
+            $dishId = $d['id'] ?? generate_id();
+            ($d['id'] !== null ? $updateDish : $insertDish)->execute([
                 ':id'          => $dishId,
                 ':rid'         => $restaurant['id'],
                 ':name'        => $d['name'],

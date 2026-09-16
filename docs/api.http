@@ -158,6 +158,8 @@ Content-Type: application/json
 }
 
 ### Replace the entire menu (transactional bulk PUT)
+# A dish may carry the "id" of an existing dish of this restaurant; it is then
+# updated in place (keeps favorites and reorder links). Unknown ids = new dish.
 PUT {{host}}/api/restaurants/{{restaurantId}}/menu
 X-Workspace-Token: {{token}}
 Content-Type: application/json

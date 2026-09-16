@@ -21,9 +21,14 @@ export type ResolvedSuggestion =
 // option name. 'exact' = everything matched, 'partial' = something changed
 // (option gone, group gone, dish reshaped) and the picker should be shown.
 export function resolveSuggestion(dishes: Dish[], s: ReorderSuggestion): ResolvedSuggestion {
-  if (s.kind === 'freetext' || s.dish_id === null) return { status: 'freetext' };
-  const dish = dishes.find((d) => d.id === s.dish_id);
-  if (!dish) return { status: 'missing' };
+  // Menu edits used to regenerate dish ids (items.dish_id → NULL), so old
+  // orders may only carry the dish name. Match by id first, then by name;
+  // a nameless match on a snapshot without options is a genuine freetext item.
+  const byId = s.dish_id !== null ? dishes.find((d) => d.id === s.dish_id) : undefined;
+  const dish = byId ?? findDishByName(dishes, s.dish);
+  if (!dish) {
+    return s.dish_id === null && s.options.length === 0 ? { status: 'freetext' } : { status: 'missing' };
+  }
 
   const wanted = new Map<string, Set<string>>();
   for (const o of s.options) {
@@ -64,6 +69,12 @@ export function resolveSuggestion(dishes: Dish[], s: ReorderSuggestion): Resolve
     optionIds,
     priceCents: computePrice(dish, optionIds),
   };
+}
+
+function findDishByName(dishes: Dish[], name: string): Dish | undefined {
+  const key = name.trim().toLocaleLowerCase('de');
+  if (key === '') return undefined;
+  return dishes.find((d) => d.name.trim().toLocaleLowerCase('de') === key);
 }
 
 // "Größe: Mittel · Toppings: Käse, Salami"

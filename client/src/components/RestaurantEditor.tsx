@@ -101,10 +101,13 @@ function validate(dishes: MenuDishInput[]): ValidationError | null {
   return null;
 }
 
-// Strip client-only ids before sending to the server. The server creates its
-// own ids for everything; sending temp client ids would just be ignored.
+// Dish ids are sent along so the server can update existing dishes in place
+// (keeps favorites and "order again" links). Temp ids of new dishes are
+// unknown to the server and simply become new rows. Group/option ids are
+// always regenerated server-side, so they are stripped here.
 function trimMenu(dishes: MenuDishInput[]): MenuDishInput[] {
   return dishes.map((d) => ({
+    ...(d.id !== undefined ? { id: d.id } : {}),
     name: d.name.trim(),
     category: (d.category ?? '').trim(),
     description: (d.description ?? '').trim(),

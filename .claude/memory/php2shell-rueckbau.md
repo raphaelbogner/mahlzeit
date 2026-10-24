@@ -1,13 +1,17 @@
 ---
 name: php2shell-rueckbau
-description: PHP2Shell-Notschutz (21.10.2026) auf dem ganzen Hostinger-Konto — Multipart-Sperren vor PHP; Liste, was nach dem Hostinger-PHP-Update zurückgebaut wird
+description: PHP2Shell-Notschutz 21.–25.10.2026 auf dem Hostinger-Konto — ZURÜCKGEBAUT am 25.10.; Lehren für die nächste PHP-Lücke (Backport ohne Versionssprung, Prüfweg, Multipart-Sperre)
 metadata:
   type: project
 ---
 
 Am 2026-10-21 wurde PHP2Shell bekannt (CVE-2026-109618/-109619, RCE ohne Login über `multipart/form-data`, PHP parst vor dem App-Code). Hostinger (Konto u868921633, alt-php83 8.3.35 / alt-php84 8.4.26 / alt-php85 8.5.11, Build 30.09.) hatte keinen Patch und **keine ETA**. Deshalb überall eine Multipart-Sperre vor PHP (Status 503). Gleicher Text liegt in familyhub, mayemedia_invoicehub und mahlzeit.
 
-**Rückbau-Bedingung:** Per SSH `for v in /opt/alt/php8*/usr/bin/php; do $v -v | head -1; done` zeigt mindestens 8.3.36 / 8.4.27 / 8.5.12, oder `rpm -q --changelog alt-php83 alt-php84 | grep 109618` findet den Fix.
+**Status 2026-10-25: zurückgebaut.** Hostinger bestätigte schriftlich den CloudLinux-Backport für 8.3/8.4 (Kriterium: hPanel → Website → PHP Info → Build Date ≥ 21.10.2026; Server zeigte Build 21.10., OPcache-Start 24.10.). Sperren in Repos und auf dem Server entfernt, per curl geprüft.
+
+**Lehre für die nächste PHP-Lücke:** CloudLinux behält die Versionsnummer (8.3.35 bleibt 8.3.35), der Fix ist ein Backport. `rpm` gibt es im Hostinger-Kundenbereich nicht; verbindlich ist das Build-Datum in PHP Info plus Bestätigung durch den Support.
+
+**Ursprüngliche Rückbau-Bedingung:** Per SSH `for v in /opt/alt/php8*/usr/bin/php; do $v -v | head -1; done` zeigt mindestens 8.3.36 / 8.4.27 / 8.5.12, oder `rpm -q --changelog alt-php83 alt-php84 | grep 109618` findet den Fix.
 
 **Was zurück muss (Suche nach `PHP2Shell-Notschutz`):**
 - **FamilyHub** (Repo): Block in `public/.htaccess` (ErrorDocument 503 + RewriteCond multipart) und `public/notschutz.html` löschen, pushen.

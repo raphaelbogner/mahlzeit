@@ -108,12 +108,6 @@ step "Writing combined .htaccess"
 cat > "${OUTPUT}/.htaccess" <<'HTACCESS'
 RewriteEngine On
 
-# PHP2Shell-Notschutz (CVE-2026-109618/-109619): Multipart-Anfragen erreichen PHP
-# nicht, weil PHP sie vor dem App-Code parst. Die App nutzt nirgends Multipart.
-# RÜCKBAU, sobald Hostinger die gepatchten PHP-Pakete eingespielt hat.
-RewriteCond %{HTTP:Content-Type} multipart [NC]
-RewriteRule ^ - [R=503,L]
-
 # Never serve cron scripts, composer files or vendor code over HTTP.
 RewriteRule ^(cron|vendor)/ - [F,L]
 RewriteRule ^composer.(json|lock)$ - [F,L]

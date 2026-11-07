@@ -73,8 +73,8 @@ function push_subscription_upsert(array $workspace): void
         error_response(400, 'INVALID_FIELD', 'Field user_id must be a 16-char id.');
     }
     $endpoint = require_string($body, 'endpoint', 500);
-    if (!str_starts_with($endpoint, 'https://')) {
-        error_response(400, 'INVALID_FIELD', 'Field endpoint must be an https URL.');
+    if (!is_allowed_push_endpoint($endpoint)) {
+        error_response(400, 'INVALID_FIELD', 'Field endpoint must be a known push service URL.');
     }
     $keys = $body['keys'] ?? null;
     if (!is_array($keys) || !is_string($keys['p256dh'] ?? null) || !is_string($keys['auth'] ?? null)) {

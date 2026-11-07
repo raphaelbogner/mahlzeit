@@ -33,6 +33,38 @@ function push_enabled(): bool
     return push_config() !== null;
 }
 
+// Nur Endpoints der echten Push-Dienste zulassen. Sonst könnte jemand mit
+// Workspace-Link den Server Anfragen an interne Hosts/Ports schicken lassen
+// (SSRF, Port-Scan über die sent/failed-Antwort).
+function is_allowed_push_endpoint(string $endpoint): bool
+{
+    $parts = parse_url($endpoint);
+    if (!is_array($parts) || ($parts['scheme'] ?? '') !== 'https') {
+        return false;
+    }
+    // Kein eigener Port, keine Zugangsdaten in der URL.
+    if (isset($parts['port']) || isset($parts['user']) || isset($parts['pass'])) {
+        return false;
+    }
+    $host = strtolower((string)($parts['host'] ?? ''));
+    // Nur ASCII-Hostnamen: kodierte oder Unicode-Hosts könnte cURL später
+    // anders auflösen, als der Suffix-Vergleich unten annimmt.
+    if (!preg_match('/^[a-z0-9.-]+$/', $host)) {
+        return false;
+    }
+    $exact  = ['fcm.googleapis.com', 'web.push.apple.com'];
+    $suffix = ['.push.services.mozilla.com', '.notify.windows.com', '.push.apple.com'];
+    if (in_array($host, $exact, true)) {
+        return true;
+    }
+    foreach ($suffix as $s) {
+        if (str_ends_with($host, $s)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // https://host/w/s/{id}?w={token} — the same link the client shares.
 function push_session_url(array $workspace, string $sessionId): string
 {
@@ -250,7 +282,18 @@ function push_send_outbox(int $limit = 100): array
     $webPush->setReuseVAPIDHeaders(true);
 
     $byEndpoint = [];
+    $subDeleteBad = $pdo->prepare('DELETE FROM push_subscriptions WHERE id = :id');
+    $removedBad = [];
     foreach ($rows as $r) {
+        // Altbestand aus der Zeit vor der Endpoint-Prüfung nie anfragen.
+        if (!is_allowed_push_endpoint((string)$r['endpoint'])) {
+            if (!isset($removedBad[$r['sub_id']])) {
+                $subDeleteBad->execute([':id' => $r['sub_id']]);
+                $removedBad[$r['sub_id']] = true;
+                $stats['removed']++;
+            }
+            continue;
+        }
         $byEndpoint[$r['endpoint']][] = $r;
         $webPush->queueNotification(
             \Minishlink\WebPush\Subscription::create([

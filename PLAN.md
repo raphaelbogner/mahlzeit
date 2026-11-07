@@ -185,6 +185,8 @@ Format überall: JSON request / JSON response. Statuscodes 200/201/204/400/401/4
 
 ### Workspace-API: Token via Query-Param `?w=...` oder Header `X-Workspace-Token`
 
+> **Stand 11/2026:** Die API nimmt das Token nur noch im Header an, `?w=` ergibt 401. Die geteilten Links `/w/?w=` bleiben. Die aktuelle `.htaccess` steht in `deploy/build.sh`. Details: `.claude/memory/sicherheits-haertung-2026-11.md`.
+
 ```
 GET    /api/sessions
 POST   /api/sessions

@@ -5,7 +5,7 @@ require_once __DIR__ . '/../shared/db.php';
 require_once __DIR__ . '/http.php';
 
 // Returns the workspace row {id, token, name, created_at} or sends 401.
-// Token is read from header X-Workspace-Token first, then ?w= query param.
+// Token is read from the X-Workspace-Token header only.
 function require_workspace(): array
 {
     $token = workspace_token_from_request();
@@ -38,8 +38,7 @@ function workspace_token_from_request(): ?string
     if (isset($_SERVER['HTTP_X_WORKSPACE_TOKEN']) && $_SERVER['HTTP_X_WORKSPACE_TOKEN'] !== '') {
         return (string)$_SERVER['HTTP_X_WORKSPACE_TOKEN'];
     }
-    if (isset($_GET['w']) && is_string($_GET['w']) && $_GET['w'] !== '') {
-        return $_GET['w'];
-    }
+    // Bewusst kein ?w= mehr: Tokens in URLs landen in Access- und CDN-Logs.
+    // Der Client schickt das Token immer im Header.
     return null;
 }

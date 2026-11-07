@@ -108,9 +108,26 @@ step "Writing combined .htaccess"
 cat > "${OUTPUT}/.htaccess" <<'HTACCESS'
 RewriteEngine On
 
+# Geteilte Links tragen das Workspace-Token in der URL (?w=). Ohne diese
+# Policy würde der Browser es beim Klick auf externe Links mitschicken.
+<IfModule mod_headers.c>
+  Header always set Referrer-Policy "no-referrer"
+</IfModule>
+
 # Never serve cron scripts, composer files or vendor code over HTTP.
 RewriteRule ^(cron|vendor)/ - [F,L]
 RewriteRule ^composer.(json|lock)$ - [F,L]
+
+# Hilfsdateien, Migrationen, Schema und Setup-Skript nie per HTTP.
+RewriteRule ^(shared|migrations)/ - [F,L]
+RewriteRule \.sql$ - [F,L]
+RewriteRule ^seed\.php$ - [F,L]
+
+# Von den API-PHP-Dateien ist nur der Front-Controller direkt erreichbar.
+# Die erste Regel lässt auch den internen Durchlauf nach dem Rewrite
+# unten (api/index.php) passieren.
+RewriteRule ^(api|admin-api)/index\.php$ - [L]
+RewriteRule ^(api|admin-api)/.+\.php$ - [F,L]
 
 # Admin-API to admin PHP front controller.
 RewriteRule ^admin/api/(.*)$ admin-api/index.php [QSA,L]

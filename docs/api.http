@@ -20,7 +20,7 @@
 GET {{host}}/api/sessions
 X-Workspace-Token: {{token}}
 
-### List sessions via query-param token
+### Token per Query-Param (?w=) wird seit 11/2026 abgelehnt → 401
 GET {{host}}/api/sessions?w={{token}}
 
 ### Create a session

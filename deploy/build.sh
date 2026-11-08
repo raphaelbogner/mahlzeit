@@ -112,6 +112,13 @@ RewriteEngine On
 # Policy würde der Browser es beim Klick auf externe Links mitschicken.
 <IfModule mod_headers.c>
   Header always set Referrer-Policy "no-referrer"
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # Schrift von fonts.bunny.net, QR-Codes als Inline-SVG (data:/blob: für Bilder).
+  # style-src braucht 'unsafe-inline' für React-style-Attribute.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; font-src 'self' https://fonts.bunny.net; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 </IfModule>
 
 # Never serve cron scripts, composer files or vendor code over HTTP.
